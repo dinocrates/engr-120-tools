@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beam Analysis Tool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0b1826;--panel:#0e2035;--border:#1b3857;--accent:#38bdf8;
+      --sfd:#34d399;--bmd:#a78bfa;--rx:#22d3ee;--text:#cbd5e1;--dim:#4e6e8a}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;
+      padding:20px;min-height:100vh;max-width:1020px;margin:0 auto}
+    header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;
+      gap:8px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+    h1{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.1rem,2.8vw,1.55rem);
+      color:#f1f5f9;letter-spacing:-0.02em}
+    h1 span{color:var(--accent)}
+    .badge{font-size:.58rem;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);
+      border:1px solid var(--border);border-radius:4px;padding:3px 9px}
+
+    .controls-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:stretch}
+    .ctrl{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+      padding:9px 12px;flex:1;min-width:90px;transition:border-color .2s}
+    .ctrl label{display:block;font-size:.56rem;text-transform:uppercase;letter-spacing:.1em;
+      color:var(--dim);margin-bottom:4px;transition:color .2s}
+    .ctrl .irow{display:flex;align-items:center;gap:5px}
+    .ctrl input[type="number"]{background:#060e1a;border:1px solid var(--border);border-radius:5px;
+      color:var(--accent);font-family:'DM Mono',monospace;font-size:.95rem;font-weight:500;
+      padding:4px 7px;width:74px;text-align:right;outline:none;
+      transition:border-color .2s,color .2s;-moz-appearance:textfield}
+    .ctrl input[type="number"]::-webkit-inner-spin-button{opacity:0}
+    .ctrl input[type="number"]:focus{border-color:var(--accent)}
+    .ctrl input[type="number"]:disabled{color:var(--dim);cursor:default}
+    .ctrl .unit{font-size:.65rem;color:var(--dim);white-space:nowrap}
+    .abtn{background:transparent;border:1px solid var(--border);border-radius:8px;
+      color:var(--dim);font-family:'DM Mono',monospace;font-size:.68rem;padding:9px 12px;
+      cursor:pointer;transition:all .2s;white-space:nowrap;align-self:stretch}
+    .abtn:hover{border-color:#f87171;color:#f87171}
+    .abtn:disabled{opacity:.3;cursor:default;pointer-events:none}
+    #btn-clear:hover{border-color:var(--dim);color:#94a3b8}
+
+    #sel-bar{display:none;gap:8px;margin-bottom:8px;background:var(--panel);
+      border:1px solid var(--border);border-radius:8px;padding:8px 12px;
+      flex-wrap:wrap;align-items:center}
+    #sel-bar .sel-tag{display:flex;align-items:center;gap:6px;font-size:.7rem}
+    .sel-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .sel-name{font-weight:500;white-space:nowrap}
+    #sel-bar .ctrl{min-width:82px;flex:0 1 auto}
+    #sel-bar .ctrl input{width:64px}
+    kbd{background:#162535;border:1px solid #2a4060;border-radius:3px;
+      padding:1px 4px;font-size:.65em;font-family:inherit}
+    .sel-hint{font-size:.6rem;color:var(--dim);flex:1;min-width:100px}
+    #sel-del{background:transparent;border:1px solid #f87171;border-radius:5px;color:#f87171;
+      font-family:'DM Mono',monospace;font-size:.63rem;padding:3px 9px;cursor:pointer;
+      transition:all .2s;white-space:nowrap}
+    #sel-del:hover{background:rgba(248,113,113,.1)}
+
+    .main-row{display:flex;gap:10px;margin-bottom:10px;align-items:stretch}
+    .palette-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+      padding:10px 8px;display:flex;flex-direction:column;align-items:center;
+      gap:5px;width:108px;flex-shrink:0;user-select:none}
+    .pal-sect-lbl{font-size:.48rem;text-transform:uppercase;letter-spacing:.1em;
+      color:var(--dim);text-align:center}
+    .pal-divider{width:80%;height:1px;background:var(--border);margin:3px 0}
+    .force-tile{cursor:grab;border-radius:6px;padding:6px 5px;display:flex;flex-direction:column;
+      align-items:center;gap:2px;transition:background .2s,transform .15s;touch-action:none;border:1px dashed}
+    .force-tile:hover{transform:scale(1.05)}
+    .force-tile.grabbing{opacity:.4;transform:scale(.95);cursor:grabbing}
+    .tile-lbl{font-size:.57rem;text-align:center;line-height:1.3}
+    .pal-input-row{display:flex;align-items:center;gap:3px;font-size:.56rem;color:var(--dim)}
+    .pal-input-row input{background:#060e1a;border:1px solid var(--border);border-radius:4px;
+      font-family:'DM Mono',monospace;font-size:.68rem;width:48px;text-align:right;
+      padding:3px 4px;outline:none;color:var(--accent);-moz-appearance:textfield}
+    .pal-input-row input::-webkit-inner-spin-button{opacity:0}
+    .pal-count{font-size:.48rem;color:var(--dim);text-align:center}
+
+    .beam-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+      flex:1;overflow:hidden;transition:border-color .2s,background .2s}
+    .beam-panel.dragover{border-color:#fb923c;background:rgba(251,146,60,.04)}
+    #beam-svg{width:100%;display:block}
+    #ghost{position:fixed;pointer-events:none;z-index:1000;display:none;opacity:.85}
+
+    .results-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+    .res-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+      padding:10px 12px;text-align:center}
+    .res-lbl{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:3px}
+    .res-val{font-size:1.2rem;font-weight:500;color:#f1f5f9;transition:color .3s}
+    .res-unit{font-size:.58rem;color:var(--dim);margin-top:1px}
+    .res-card.ra .res-val,.res-card.rb .res-val{color:var(--rx)}
+    .res-card.mm .res-val{color:var(--bmd)}
+    .res-val.dash{color:var(--dim)!important}
+
+    .diagrams-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .diag-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+    .diag-hdr{display:flex;align-items:center;gap:6px;padding:8px 12px;
+      border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-size:.75rem;font-weight:700}
+    .diag-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    canvas.diag-canvas{display:block;width:100%}
+    .no-load-msg{height:120px;display:flex;align-items:center;justify-content:center;
+      color:var(--dim);font-size:.68rem;font-style:italic}
+
+    /* ── Beam type toggle ───────────────────────── */
+    .toggles-row{display:flex;align-items:center;justify-content:space-between;
+      gap:10px;margin-bottom:12px;flex-wrap:wrap}
+    .toggles-row .beam-type-bar{margin-bottom:0}
+    .beam-type-bar{display:flex;gap:0;border-radius:10px;
+      overflow:hidden;border:1px solid var(--border);width:fit-content}
+    .beam-type-btn{background:var(--panel);border:none;color:var(--dim);
+      font-family:'DM Mono',monospace;font-size:.72rem;padding:9px 20px;
+      cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px;white-space:nowrap}
+    .beam-type-btn:first-child{border-right:1px solid var(--border)}
+    .beam-type-btn.active{background:#0f2d4a;color:#f1f5f9;font-weight:500}
+    .beam-type-btn.active.ss{background:rgba(56,189,248,.15);color:#38bdf8;border-color:#38bdf8}
+    .beam-type-btn.active.cl{background:rgba(232,121,249,.12);color:#e879f9;border-color:#e879f9}
+    .beam-type-btn:not(.active):hover{background:#132030;color:var(--text)}
+    .beam-type-btn svg{flex-shrink:0;opacity:.8}
+
+    @media(max-width:580px){
+      .diagrams-row,.results-row{grid-template-columns:1fr}
+      .main-row{flex-direction:column}
+      .palette-panel{flex-direction:row;width:100%;justify-content:center;flex-wrap:wrap}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⊢ Beam <span>Analysis</span></h1>
+  <span class="badge" id="beam-badge">Simply Supported · Point · Distributed · Moment Loads</span>
+</header>
+
+<!-- Beam type + unit system toggles -->
+<div class="toggles-row">
+  <div class="beam-type-bar">
+    <button class="beam-type-btn ss active" id="btn-ss" onclick="setBeamType('simply_supported')">
+      <svg width="36" height="18" viewBox="0 0 36 18">
+        <line x1="2" y1="9" x2="34" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <polygon points="4,9 4,15 10,15" fill="currentColor" opacity=".9"/>
+        <circle cx="32" cy="14" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="28" y1="17" x2="36" y2="17" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      Simply Supported
+    </button>
+    <button class="beam-type-btn cl" id="btn-cl" onclick="setBeamType('cantilever')">
+      <svg width="36" height="18" viewBox="0 0 36 18">
+        <rect x="0" y="3" width="7" height="12" fill="currentColor" opacity=".35" rx="1"/>
+        <line x1="1" y1="4" x2="7" y2="9" stroke="currentColor" stroke-width="1" opacity=".5"/>
+        <line x1="1" y1="9" x2="7" y2="14" stroke="currentColor" stroke-width="1" opacity=".5"/>
+        <line x1="7" y1="9" x2="34" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="34" y1="5" x2="34" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Cantilever
+    </button>
+  </div>
+
+  <div class="beam-type-bar">
+    <button class="beam-type-btn ss active" id="btn-metric" onclick="setUnits('metric')">
+      <svg width="14" height="14" viewBox="0 0 14 14"><text x="0" y="11" font-size="9" fill="currentColor" font-family="monospace">SI</text></svg>
+      kN, m
+    </button>
+    <button class="beam-type-btn cl" id="btn-us" onclick="setUnits('us')">
+      <svg width="16" height="14" viewBox="0 0 16 14"><text x="0" y="11" font-size="9" fill="currentColor" font-family="monospace">US</text></svg>
+      lb, ft
+    </button>
+  </div>
+</div>
+
+<div class="controls-row">
+  <div class="ctrl">
+    <label>Beam Length</label>
+    <div class="irow"><input type="number" id="inp-L" value="10" min="0.5" max="500" step="0.5"><span class="unit" id="pu-L">m</span></div>
+  </div>
+  <button class="abtn" id="btn-remove" disabled>✕ Remove</button>
+  <button class="abtn" id="btn-clear" style="color:var(--dim)">⌫ Clear All</button>
+</div>
+
+<div id="sel-bar">
+  <div class="sel-tag">
+    <span class="sel-dot" id="sel-dot"></span>
+    <span class="sel-name" id="sel-name"></span>
+  </div>
+  <div id="sel-fields" style="display:contents"></div>
+  <span class="sel-hint">drag to move · edit above · <kbd>Del</kbd> remove · <kbd>Esc</kbd> deselect</span>
+  <button id="sel-del">Remove</button>
+</div>
+
+<div class="main-row">
+  <div class="palette-panel">
+
+    <div class="pal-sect-lbl">Point Load</div>
+    <div class="force-tile" id="pt-tile" style="border-color:#fb923c;background:rgba(251,146,60,.06)" touch-action="none">
+      <svg width="22" height="42" viewBox="0 0 22 42">
+        <line x1="11" y1="1" x2="11" y2="25" stroke="#fb923c" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="11,41 2,23 20,23" fill="#fb923c"/>
+      </svg>
+      <div class="tile-lbl" id="pt-lbl" style="color:#fb923c">50<br>kN</div>
+    </div>
+    <div class="pal-input-row"><input type="number" id="new-P" value="50" step="1"><span id="pu-F">kN</span></div>
+
+    <div class="pal-divider"></div>
+
+    <div class="pal-sect-lbl">Dist Load</div>
+    <div class="force-tile" id="dl-tile" style="border-color:#06b6d4;background:rgba(6,182,212,.06)" touch-action="none">
+      <svg width="34" height="28" viewBox="0 0 34 28">
+        <line x1="1" y1="3" x2="33" y2="3" stroke="#06b6d4" stroke-width="1.5"/>
+        <line x1="6" y1="3" x2="6" y2="17" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
+        <polygon points="6,26 2,16 10,16" fill="#06b6d4"/>
+        <line x1="17" y1="3" x2="17" y2="17" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
+        <polygon points="17,26 13,16 21,16" fill="#06b6d4"/>
+        <line x1="28" y1="3" x2="28" y2="17" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
+        <polygon points="28,26 24,16 32,16" fill="#06b6d4"/>
+      </svg>
+      <div class="tile-lbl" id="dl-lbl" style="color:#06b6d4">10→10<br>kN/m</div>
+    </div>
+    <div class="pal-input-row"><input type="number" id="new-w1" value="10" step="1"><span>→</span></div>
+    <div class="pal-input-row"><input type="number" id="new-w2" value="10" step="1"><span id="pu-W">kN/m</span></div>
+
+    <div class="pal-divider"></div>
+
+    <div class="pal-sect-lbl">Moment</div>
+    <div class="force-tile" id="mom-tile" style="border-color:#e879f9;background:rgba(232,121,249,.06)" touch-action="none">
+      <svg width="30" height="30" viewBox="0 0 30 30">
+        <path d="M 15,2 A 13,13 0 1,1 2,15" fill="none" stroke="#e879f9" stroke-width="2.2" stroke-linecap="round"/>
+        <polygon points="2,15 10,8 0,23" fill="#e879f9"/>
+      </svg>
+      <div class="tile-lbl" id="mom-lbl" style="color:#e879f9">10<br>kN·m</div>
+    </div>
+    <div class="pal-input-row"><input type="number" id="new-M" value="10" step="1"><span id="pu-M">kN·m</span></div>
+    <div style="font-size:.46rem;color:var(--dim);text-align:center;line-height:1.4">+ve = CCW</div>
+
+    <div class="pal-divider"></div>
+    <div class="pal-count" id="pal-count">0 / 8</div>
+  </div>
+
+  <div class="beam-panel" id="beam-panel">
+    <svg id="beam-svg" viewBox="0 0 800 295" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+</div>
+
+<div class="results-row">
+  <div class="res-card ra"><div class="res-lbl" id="lbl-ra">Reaction at A</div><div class="res-val dash" id="ra-val">—</div><div class="res-unit" id="unit-ra">kN ↑</div></div>
+  <div class="res-card mm"><div class="res-lbl" id="lbl-mm">Max Moment</div><div class="res-val dash" id="mm-val">—</div><div class="res-unit" id="unit-mm">kN·m</div></div>
+  <div class="res-card rb"><div class="res-lbl" id="lbl-rb">Reaction at B</div><div class="res-val dash" id="rb-val">—</div><div class="res-unit" id="unit-rb">kN ↑</div></div>
+</div>
+
+<div class="diagrams-row">
+  <div class="diag-card">
+    <div class="diag-hdr"><span class="diag-dot" style="background:#34d399"></span>Shear Force Diagram</div>
+    <div id="sfd-body"><div class="no-load-msg">Add a load to generate diagrams</div></div>
+  </div>
+  <div class="diag-card">
+    <div class="diag-hdr"><span class="diag-dot" style="background:#a78bfa"></span>Bending Moment Diagram</div>
+    <div id="bmd-body"><div class="no-load-msg">Add a load to generate diagrams</div></div>
+  </div>
+</div>
+
+<div id="ghost"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+const LOAD_COLORS=['#fb923c','#facc15','#f472b6','#34d399','#60a5fa','#c084fc','#ff7eb3','#a3e635'];
+const MAX_LOADS=8;
+let L=10, defaultP=50, defaultW1=10, defaultW2=10, defaultM=10;
+let loads=[], selectedId=null, nextId=1, colorIdx=0;
+let beamType='simply_supported'; // 'simply_supported' | 'cantilever'
+let units='metric'; // 'metric' | 'us'
+
+// ── Unit conversion ──────────────────────────────────────────
+const C_F=224.809, C_L=3.28084, C_M=737.562, C_W=68.5218;
+// toDisp: SI → display   fromDisp: display → SI
+function toDisp(v,t){if(units==='metric')return v;return v*(t==='force'?C_F:t==='length'?C_L:t==='moment'?C_M:C_W);}
+function fromDisp(v,t){if(units==='metric')return v;return v/(t==='force'?C_F:t==='length'?C_L:t==='moment'?C_M:C_W);}
+function uF(){return units==='metric'?'kN':'lb';}
+function uL(){return units==='metric'?'m':'ft';}
+function uM(){return units==='metric'?'kN·m':'lb·ft';}
+function uW(){return units==='metric'?'kN/m':'lb/ft';}
+// Formatted display strings
+function fF(v){const d=toDisp(v,'force');return units==='metric'?d.toFixed(2):Math.round(d).toString();}
+function fL(v){return toDisp(v,'length').toFixed(units==='metric'?3:3);}
+function fM(v){const d=toDisp(v,'moment');return units==='metric'?d.toFixed(2):Math.round(d).toString();}
+function fW(v){const d=toDisp(v,'fdist');return units==='metric'?d.toFixed(2):d.toFixed(1);}
+
+function setUnits(u){
+  units=u;
+  document.getElementById('btn-metric').classList.toggle('active',u==='metric');
+  document.getElementById('btn-us').classList.toggle('active',u==='us');
+  // Update palette input values to new display units
+  document.getElementById('new-P').value  = toDisp(defaultP,'force').toFixed(2);
+  document.getElementById('new-w1').value = toDisp(defaultW1,'fdist').toFixed(2);
+  document.getElementById('new-w2').value = toDisp(defaultW2,'fdist').toFixed(2);
+  document.getElementById('new-M').value  = toDisp(defaultM,'moment').toFixed(2);
+  document.getElementById('inp-L').value  = toDisp(L,'length').toFixed(3);
+  // Update unit label spans
+  const f=uF(),l=uL(),m=uM(),w=uW();
+  document.getElementById('pu-F').textContent=f;
+  document.getElementById('pu-W').textContent=w;
+  document.getElementById('pu-M').textContent=m;
+  document.getElementById('pu-L').textContent=l;
+  updateAll();
+}
+
+// ── SVG layout ───────────────────────────────────────────────
+const VW=800,VH=295,BX0=80,BX1=720,BY=118,BH=14;
+const DIST_H=44, PT_H=58, MOM_R=20;
+
+// ── DOM refs ─────────────────────────────────────────────────
+const svg=document.getElementById('beam-svg');
+const bPanel=document.getElementById('beam-panel');
+const ghost=document.getElementById('ghost');
+
+// ══════════════════════════════════════════════════════════════
+//  SVG HELPERS
+// ══════════════════════════════════════════════════════════════
+const NS='http://www.w3.org/2000/svg';
+function mk(tag,attrs){const e=document.createElementNS(NS,tag);if(attrs)for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);return e}
+function mkt(str,x,y,fill,size='11px',anchor='middle',weight='400'){
+  const t=mk('text',{x,y,fill,'font-size':size,'text-anchor':anchor,
+    'font-family':'"DM Mono","Courier New",monospace','font-weight':weight});
+  t.textContent=str;return t}
+function svgPt(cx,cy){const p=svg.createSVGPoint();p.x=cx;p.y=cy;return p.matrixTransform(svg.getScreenCTM().inverse())}
+function svgX(cx){return svgPt(cx,0).x}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function loadX(pos){return BX0+(pos/L)*(BX1-BX0)}
+function beamPos(sx){return clamp((sx-BX0)/(BX1-BX0),0,1)*L}
+
+// ══════════════════════════════════════════════════════════════
+//  PHYSICS
+// ══════════════════════════════════════════════════════════════
+function calcRA(){
+  if(beamType==='cantilever'){
+    // Fixed at A: RA = total vertical load (no moment contribution to force)
+    let RA=0;
+    for(const ld of loads){
+      if(ld.type==='point') RA+=ld.P;
+      else if(ld.type==='dist') RA+=(ld.w1+ld.w2)/2*(ld.d-ld.c);
+    }
+    return RA;
+  }
+  let RA=0;
+  for(const ld of loads){
+    if(ld.type==='point') RA+=ld.P*(L-ld.a)/L;
+    else if(ld.type==='dist'){
+      const h=ld.d-ld.c;
+      RA+=(ld.w1*h*(L-(ld.c+ld.d)/2)+(ld.w2-ld.w1)*h/2*(L-ld.c-2*(ld.d-ld.c)/3))/L;
+    }
+    else if(ld.type==='moment') RA+=(ld.M/L);
+  }
+  return RA;
+}
+function calcRB(){
+  if(beamType==='cantilever') return 0; // free end — no reaction
+  let RB=0;
+  for(const ld of loads){
+    if(ld.type==='point') RB+=ld.P*ld.a/L;
+    else if(ld.type==='dist'){
+      const h=ld.d-ld.c;
+      RB+=(ld.w1*h*(ld.c+ld.d)/2+(ld.w2-ld.w1)*h/2*(ld.c+2*(ld.d-ld.c)/3))/L;
+    }
+    else if(ld.type==='moment') RB+=(-ld.M/L);
+  }
+  return RB;
+}
+
+// Fixed-end moment at A for cantilever (= bending moment at x=0, sagging+ve)
+// Computed from right portion: M(x) = -sum of loads to RIGHT of x
+function distMomentRight(ld,x){
+  // ∫_max(x,c)^d w(t)*(t-x) dt
+  const{w1,w2,c,d}=ld,h=d-c;
+  if(x>=d)return 0;
+  if(x<c){
+    // Full load: use centroid method
+    return w1*h*((c+d)/2-x)+(w2-w1)*h/2*(c+2*h/3-x);
+  }else{
+    // Partial load from x to d
+    const dx=d-x;
+    const wx=w1+(w2-w1)*(x-c)/h; // intensity at x
+    return wx*dx*dx/2+(w2-w1)*dx*dx*dx/(3*h);
+  }
+}
+function momentAtCantilever(x){
+  // From RIGHT portion — no wall reactions needed
+  let M=0;
+  for(const ld of loads){
+    if(ld.type==='point'){if(ld.a>x)M-=ld.P*(ld.a-x);}
+    else if(ld.type==='dist')M-=distMomentRight(ld,x);
+    else if(ld.type==='moment'){if(ld.a>x)M-=ld.M;}
+  }
+  return M;
+}
+
+// Shear contribution from a single load at position x
+// incl=true: point load at exactly x is included
+function loadShear(ld,x,incl){
+  if(ld.type==='point') return(incl?ld.a<=x:ld.a<x)?ld.P:0;
+  if(ld.type==='moment') return 0; // moments don't cause shear jumps
+  // dist load
+  const{w1,w2,c,d}=ld,h=d-c;
+  if(x<=c)return 0;
+  const t=Math.min(x,d)-c;
+  return w1*t+(w2-w1)*t*t/(2*h);
+}
+function shearAt(x,RA,incl=false){
+  let V=RA;
+  for(const ld of loads)V-=loadShear(ld,x,incl);
+  return V;
+}
+
+// Bending moment contribution from a distributed load
+function distMoment(ld,x){
+  const{w1,w2,c,d}=ld,h=d-c;
+  if(x<=c)return 0;
+  if(x<=d){const s=x-c;return w1*s*s/2+(w2-w1)*s*s*s/(6*h);}
+  // x > d
+  return x*(w1+w2)*h/2-(w1*(c+d)*h/2+(w2-w1)*(h*h/3+c*h/2));
+}
+
+// Bending moment at x (RA already computed)
+// For moment loads (CCW+ve): subtract ld.M when ld.a < x → downward jump at a
+function momentAt(x,RA){
+  if(beamType==='cantilever') return momentAtCantilever(x);
+  let M=RA*x;
+  for(const ld of loads){
+    if(ld.type==='point'){if(ld.a<x)M-=ld.P*(x-ld.a);}
+    else if(ld.type==='dist')M-=distMoment(ld,x);
+    else if(ld.type==='moment'){if(ld.a<x)M-=ld.M;}
+  }
+  return M;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DRAW BEAM SVG
+// ══════════════════════════════════════════════════════════════
+function drawBeam(){
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+
+  // Grid
+  const g=mk('g',{opacity:'0.07'});
+  for(let x=0;x<=VW;x+=40)g.appendChild(mk('line',{x1:x,y1:0,x2:x,y2:VH,stroke:'#38bdf8','stroke-width':'0.5'}));
+  for(let y=0;y<=VH;y+=40)g.appendChild(mk('line',{x1:0,y1:y,x2:VW,y2:y,stroke:'#38bdf8','stroke-width':'0.5'}));
+  svg.appendChild(g);
+
+  // Beam
+  svg.appendChild(mk('rect',{x:BX0,y:BY-BH/2,width:BX1-BX0,height:BH,
+    fill:'#1e3a8a',stroke:'#60a5fa','stroke-width':'1.5',rx:'2'}));
+
+  // Supports & labels — branch on beam type
+  if(beamType==='cantilever'){
+    drawFixedWall(BX0);
+    // Free end cap
+    svg.appendChild(mk('line',{x1:BX1,y1:BY-BH/2-4,x2:BX1,y2:BY+BH/2+4,
+      stroke:'#60a5fa','stroke-width':'2.5','stroke-linecap':'round'}));
+    svg.appendChild(mkt('A',BX0-24,BY+5,'#60a5fa','15px','end','700'));
+    svg.appendChild(mkt('free end',BX1+8,BY+5,'#4e6e8a','9px','start','400'));
+  }else{
+    drawSupport(BX0,'pin'); drawSupport(BX1,'roller');
+    svg.appendChild(mkt('A',BX0-22,BY+5,'#60a5fa','15px','end','700'));
+    svg.appendChild(mkt('B',BX1+22,BY+5,'#60a5fa','15px','start','700'));
+  }
+
+  // Dimension line: at the very bottom of the SVG, clear of all loads and reactions
+  const dY=VH-16;
+  // Light vertical drop-lines from supports to dimension line
+  svg.appendChild(mk('line',{x1:BX0,y1:BY+BH/2+42,x2:BX0,y2:dY-4,stroke:'#1e3550','stroke-width':'0.75','stroke-dasharray':'4,3'}));
+  svg.appendChild(mk('line',{x1:BX1,y1:BY+BH/2+42,x2:BX1,y2:dY-4,stroke:'#1e3550','stroke-width':'0.75','stroke-dasharray':'4,3'}));
+  // Horizontal dimension line with arrowheads
+  svg.appendChild(mk('line',{x1:BX0+10,y1:dY,x2:BX1-10,y2:dY,stroke:'#2e5070','stroke-width':'1.2'}));
+  svg.appendChild(mk('polygon',{points:`${BX0},${dY} ${BX0+12},${dY-4} ${BX0+12},${dY+4}`,fill:'#2e5070'}));
+  svg.appendChild(mk('polygon',{points:`${BX1},${dY} ${BX1-12},${dY-4} ${BX1-12},${dY+4}`,fill:'#2e5070'}));
+  // Tick marks
+  svg.appendChild(mk('line',{x1:BX0,y1:dY-5,x2:BX0,y2:dY+5,stroke:'#2e5070','stroke-width':'1.2'}));
+  svg.appendChild(mk('line',{x1:BX1,y1:dY-5,x2:BX1,y2:dY+5,stroke:'#2e5070','stroke-width':'1.2'}));
+  svg.appendChild(mkt(`L = ${fL(L)} ${uL()}`,(BX0+BX1)/2,dY-10,'#4a7090','12px','middle','500'));
+
+  if(loads.length===0){
+    const hint=mkt(beamType==='cantilever'
+      ?'← drag a load onto the cantilever →'
+      :'← drag a load and drop it here →',
+      (BX0+BX1)/2,BY-42,'#2a4a68','13px','middle','400');
+    hint.setAttribute('font-style','italic');svg.appendChild(hint);
+    return;
+  }
+
+  const RA=calcRA(),RB=calcRB();
+
+  // Draw order: dist loads → point loads → moment loads (on top)
+  for(const ld of loads)if(ld.type==='dist'&&ld.id!==selectedId)drawDistLoad(ld,false);
+  for(const ld of loads)if(ld.type==='dist'&&ld.id===selectedId)drawDistLoad(ld,true);
+  for(const ld of loads)if(ld.type==='point'&&ld.id!==selectedId)drawPointLoad(ld,false);
+  for(const ld of loads)if(ld.type==='point'&&ld.id===selectedId)drawPointLoad(ld,true);
+  for(const ld of loads)if(ld.type==='moment'&&ld.id!==selectedId)drawMomentLoad(ld,false);
+  for(const ld of loads)if(ld.type==='moment'&&ld.id===selectedId)drawMomentLoad(ld,true);
+
+  // Reactions
+  if(beamType==='cantilever'){
+    drawRxArrow(BX0,RA);
+    const MA=momentAtCantilever(0);
+    if(Math.abs(MA)>0.01) drawRxMomentArrow(BX0,MA);
+  }else{
+    drawRxArrow(BX0,RA); drawRxArrow(BX1,RB);
+  }
+}
+
+function drawSupport(x,type){
+  const sh=20,sw=18,bot=BY+BH/2;
+  svg.appendChild(mk('polygon',{points:`${x},${bot} ${x-sw},${bot+sh} ${x+sw},${bot+sh}`,
+    fill:'#162e55',stroke:'#3b82f6','stroke-width':'1.5'}));
+  if(type==='roller'){
+    for(let i=-1;i<=1;i++)svg.appendChild(mk('circle',{cx:x+i*8,cy:bot+sh+6,r:'4',fill:'none',stroke:'#3b82f6','stroke-width':'1.5'}));
+    svg.appendChild(mk('line',{x1:x-20,y1:bot+sh+11,x2:x+20,y2:bot+sh+11,stroke:'#3b82f6','stroke-width':'1.5'}));
+    for(let i=-2;i<=2;i++)svg.appendChild(mk('line',{x1:x+i*7-3,y1:bot+sh+11,x2:x+i*7-9,y2:bot+sh+18,stroke:'#3b82f6','stroke-width':'1',opacity:'0.5'}));
+  }else{
+    svg.appendChild(mk('line',{x1:x-20,y1:bot+sh,x2:x+20,y2:bot+sh,stroke:'#3b82f6','stroke-width':'1.5'}));
+    for(let i=-2;i<=2;i++)svg.appendChild(mk('line',{x1:x+i*7-3,y1:bot+sh,x2:x+i*7-9,y2:bot+sh+7,stroke:'#3b82f6','stroke-width':'1',opacity:'0.5'}));
+  }
+}
+
+function drawFixedWall(x){
+  const wallW=14, top=BY-36, bot=BY+36;
+  // Hatching to the left of the wall plate
+  for(let y=top+4;y<=bot-2;y+=9)
+    svg.appendChild(mk('line',{x1:x-wallW,y1:y,x2:x-wallW-12,y2:y+8,stroke:'#3b82f6','stroke-width':'1',opacity:'0.45'}));
+  // Wall plate
+  svg.appendChild(mk('rect',{x:x-wallW,y:top,width:wallW,height:bot-top,
+    fill:'#162e55',stroke:'#3b82f6','stroke-width':'1.5',rx:'1'}));
+  // Small connector block flush with beam
+  svg.appendChild(mk('rect',{x:x-5,y:BY-BH/2-1,width:5,height:BH+2,fill:'#3b82f6',rx:'1'}));
+}
+
+// Reaction moment arc at the fixed wall (cantilever)
+function drawRxMomentArrow(x,M){
+  const col='#22d3ee',r=22;
+  // Hogging (M<0) → CW arc; Sagging (M>0) → CCW arc
+  const cw=M<0;
+  const arcPath=cw
+    ?`M ${x},${BY-r} A ${r},${r} 0 1,1 ${x-r},${BY}`
+    :`M ${x},${BY-r} A ${r},${r} 0 1,0 ${x+r},${BY}`;
+  svg.appendChild(mk('path',{d:arcPath,fill:'none',stroke:col,'stroke-width':'2.5','stroke-linecap':'round'}));
+  const ax=cw?x-r:x+r;
+  svg.appendChild(mk('polygon',{points:`${ax},${BY-11} ${ax-6},${BY+2} ${ax+6},${BY+2}`,fill:col}));
+  svg.appendChild(mkt(`${M.toFixed(2)} kN·m`,x,BY-r-9,col,'10px'));
+}
+
+function drawPointLoad(ld,isSel){
+  const c=ld.color,lx=loadX(ld.a);
+  const down=ld.P>=0;
+  const beamY=down?BY-BH/2:BY+BH/2;
+  const tipY=beamY, tailY=down?beamY-PT_H:beamY+PT_H;
+  const dim=isSel?'1':(selectedId!=null?'0.4':'1');
+  const idx=loads.indexOf(ld)+1;
+  svg.appendChild(mk('line',{x1:lx,y1:tailY+(down?8:-8),x2:lx,y2:tipY+(down?-4:4),
+    stroke:c,'stroke-width':isSel?'3':'2.5','stroke-linecap':'round',opacity:dim}));
+  if(down)svg.appendChild(mk('polygon',{points:`${lx},${tipY} ${lx-8},${tipY-15} ${lx+8},${tipY-15}`,fill:c,opacity:dim}));
+  else     svg.appendChild(mk('polygon',{points:`${lx},${tipY} ${lx-8},${tipY+15} ${lx+8},${tipY+15}`,fill:c,opacity:dim}));
+  const lbl=mkt(`P${idx}=${ld.P}kN`,lx,down?tailY-2:tailY+14,c,'11px','middle','500');
+  lbl.setAttribute('opacity',dim);svg.appendChild(lbl);
+  svg.appendChild(mk('line',{x1:lx,y1:BY-BH/2-2,x2:lx,y2:BY+BH/2+2,
+    stroke:c,'stroke-width':'1','stroke-dasharray':'3,3',opacity:String(parseFloat(dim)*0.3)}));
+  const hy=tailY+(down?6:-6);
+  svg.appendChild(mk('circle',{cx:lx,cy:hy,r:isSel?'9':'7',fill:'rgba(0,0,0,.01)',stroke:c,
+    'stroke-width':isSel?'2':'1.5',style:'cursor:ew-resize',opacity:dim,'data-id':String(ld.id),'data-h':'pt'}));
+  if(isSel)svg.appendChild(mk('circle',{cx:lx,cy:hy,r:'15',fill:'none',stroke:c,
+    'stroke-width':'1','stroke-dasharray':'4,3',opacity:'0.4'}));
+}
+
+function drawDistLoad(ld,isSel){
+  const{w1,w2,c,d,color}=ld;
+  const x0=loadX(c),x1=loadX(d);
+  const maxAbs=Math.max(Math.abs(w1),Math.abs(w2),0.001);
+  const sc=DIST_H/maxAbs;
+  const beamTop=BY-BH/2,beamBot=BY+BH/2;
+  const dim=isSel?'1':(selectedId!=null?'0.4':'1');
+  const alpha=parseFloat(dim);
+  const idx=loads.indexOf(ld)+1;
+
+  function arrowEndY(wx){return wx>=0?beamTop-Math.abs(wx)*sc:beamBot+Math.abs(wx)*sc}
+  let xZeroSvg=null;
+  if((w1>0&&w2<0)||(w1<0&&w2>0))xZeroSvg=x0+(-w1/(w2-w1))*(x1-x0);
+
+  function fillTrap(xa,ya,xb,yb,base){
+    svg.appendChild(mk('polygon',{points:`${xa},${base} ${xa},${ya} ${xb},${yb} ${xb},${base}`,
+      fill:color,opacity:String(alpha*0.15)}));
+    svg.appendChild(mk('line',{x1:xa,y1:ya,x2:xb,y2:yb,stroke:color,'stroke-width':'1.5',opacity:dim}));
+  }
+  if(xZeroSvg===null){
+    fillTrap(x0,arrowEndY(w1),x1,arrowEndY(w2),w1>=0?beamTop:beamBot);
+  }else{
+    if(w1>0){fillTrap(x0,arrowEndY(w1),xZeroSvg,beamTop,beamTop);fillTrap(xZeroSvg,beamBot,x1,arrowEndY(w2),beamBot);}
+    else     {fillTrap(x0,arrowEndY(w1),xZeroSvg,beamBot,beamBot);fillTrap(xZeroSvg,beamTop,x1,arrowEndY(w2),beamTop);}
+  }
+  for(const[ex,ew]of[[x0,w1],[x1,w2]]){
+    if(Math.abs(ew)>0.01)
+      svg.appendChild(mk('line',{x1:ex,y1:ew>=0?beamTop:beamBot,x2:ex,y2:arrowEndY(ew),
+        stroke:color,'stroke-width':'1','stroke-dasharray':'3,2',opacity:dim}));
+  }
+
+  const nArr=Math.max(3,Math.min(12,Math.round((x1-x0)/38)));
+  for(let i=0;i<=nArr;i++){
+    const t=i/nArr,wx=w1+(w2-w1)*t,ax=x0+t*(x1-x0),ht=Math.abs(wx)*sc;
+    if(ht<3)continue;
+    if(wx>=0){
+      svg.appendChild(mk('line',{x1:ax,y1:beamTop-ht,x2:ax,y2:beamTop-5,stroke:color,'stroke-width':'1.5','stroke-linecap':'round',opacity:dim}));
+      svg.appendChild(mk('polygon',{points:`${ax},${beamTop} ${ax-4},${beamTop-9} ${ax+4},${beamTop-9}`,fill:color,opacity:dim}));
+    }else{
+      svg.appendChild(mk('line',{x1:ax,y1:beamBot+ht,x2:ax,y2:beamBot+5,stroke:color,'stroke-width':'1.5','stroke-linecap':'round',opacity:dim}));
+      svg.appendChild(mk('polygon',{points:`${ax},${beamBot} ${ax-4},${beamBot+9} ${ax+4},${beamBot+9}`,fill:color,opacity:dim}));
+    }
+  }
+
+  const lbl=w1===w2?`w${idx}=${w1}kN/m`:`w${idx}:${w1}→${w2}kN/m`;
+  const midX=(x0+x1)/2;
+  const topMost=Math.min(arrowEndY(w1>=0?Math.max(Math.abs(w1),0.001):0.001),arrowEndY(w2>=0?Math.max(Math.abs(w2),0.001):0.001));
+  const lt=mkt(lbl,midX,Math.min(beamTop-DIST_H-4,topMost-4),color,'10px','middle','500');
+  lt.setAttribute('opacity',dim);svg.appendChild(lt);
+
+  const midY=BY;
+  for(const[hx,hh] of[[x0,'left'],[loadX((c+d)/2),'body'],[x1,'right']]){
+    svg.appendChild(mk(hh==='body'?'rect':'circle',
+      hh==='body'?{x:hx-12,y:midY-7,width:24,height:14,rx:'4',fill:color,'fill-opacity':String(alpha*0.15),stroke:color,'stroke-width':'1.5',style:'cursor:move',opacity:dim,'data-id':String(ld.id),'data-h':hh}
+               :{cx:hx,cy:midY,r:isSel?'7':'5.5',fill:color,'fill-opacity':String(alpha*0.15),stroke:color,'stroke-width':'1.5',style:'cursor:ew-resize',opacity:dim,'data-id':String(ld.id),'data-h':hh}));
+  }
+  if(isSel)svg.appendChild(mk('rect',{x:x0,y:beamTop-DIST_H-8,width:x1-x0,height:BH+2*DIST_H+16,rx:'4',
+    fill:'none',stroke:color,'stroke-width':'1','stroke-dasharray':'5,3',opacity:'0.35'}));
+}
+
+// Draw a concentrated moment symbol (circular arc + arrowhead)
+function drawMomentLoad(ld,isSel){
+  const cx=loadX(ld.a),cy=BY;
+  const r=MOM_R,c=ld.color;
+  const dim=isSel?'1':(selectedId!=null?'0.4':'1');
+  const cw=ld.M<0; // CW arc when negative (CCW+ve convention)
+  const idx=loads.indexOf(ld)+1;
+
+  // Arc: 270° from top to left(CW) or top to right(CCW)
+  // CW: M top,cy-r → left cx-r,cy  sweep=1,1 (large-arc=1, CW in SVG)
+  // CCW: top → right  sweep=1,0
+  const arcPath=cw
+    ?`M ${cx},${cy-r} A ${r},${r} 0 1,1 ${cx-r},${cy}`
+    :`M ${cx},${cy-r} A ${r},${r} 0 1,0 ${cx+r},${cy}`;
+  const arcEl=mk('path',{d:arcPath,fill:'none',stroke:c,'stroke-width':isSel?'3':'2.5','stroke-linecap':'round',opacity:dim});
+  svg.appendChild(arcEl);
+
+  // Arrowhead: at end of arc, pointing upward (tangent direction for both CW/CCW)
+  const ax=cw?cx-r:cx+r, ay=cy;
+  const arrTip=ay-10, arrBase=ay+2;
+  svg.appendChild(mk('polygon',{
+    points:`${ax},${arrTip} ${ax-6},${arrBase} ${ax+6},${arrBase}`,
+    fill:c,opacity:dim}));
+
+  // Label (above the symbol)
+  const lbl=mkt(`M${idx}=${ld.M}kN·m`,cx,cy-r-9,c,'11px','middle','500');
+  lbl.setAttribute('opacity',dim);svg.appendChild(lbl);
+
+  // Drag handle: circle at center of arc
+  svg.appendChild(mk('circle',{cx,cy,r:isSel?'9':'7',fill:'rgba(0,0,0,.01)',stroke:c,
+    'stroke-width':isSel?'2':'1.5',style:'cursor:ew-resize',opacity:dim,
+    'data-id':String(ld.id),'data-h':'pt'}));
+  if(isSel){
+    svg.appendChild(mk('circle',{cx,cy,r:'15',fill:'none',stroke:c,
+      'stroke-width':'1','stroke-dasharray':'4,3',opacity:'0.4'}));
+    // Mark the position on beam
+    svg.appendChild(mk('line',{x1:cx,y1:BY-BH/2,x2:cx,y2:BY+BH/2,
+      stroke:c,'stroke-width':'1.5','stroke-dasharray':'3,3',opacity:'0.6'}));
+  }
+}
+
+// Reaction arrow: handles positive (upward) and negative (downward)
+function drawRxArrow(x,F){
+  const col='#22d3ee';
+  const base=BY+BH/2+36;
+  if(F>=0){
+    // Upward arrow
+    const tail=base+48;
+    svg.appendChild(mk('line',{x1:x,y1:base+12,x2:x,y2:tail,stroke:col,'stroke-width':'2','stroke-linecap':'round'}));
+    svg.appendChild(mk('polygon',{points:`${x},${base} ${x-6},${base+13} ${x+6},${base+13}`,fill:col}));
+    svg.appendChild(mkt(`${F.toFixed(2)} kN`,x,tail+12,col,'10px'));
+  }else{
+    // Downward arrow
+    const tip=base+50;
+    svg.appendChild(mk('line',{x1:x,y1:base,x2:x,y2:tip-12,stroke:col,'stroke-width':'2','stroke-linecap':'round'}));
+    svg.appendChild(mk('polygon',{points:`${x},${tip} ${x-6},${tip-12} ${x+6},${tip-12}`,fill:col}));
+    svg.appendChild(mkt(`${F.toFixed(2)} kN`,x,tip+12,col,'10px'));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DIAGRAMS
+// ══════════════════════════════════════════════════════════════
+function drawDiagrams(){
+  const sB=document.getElementById('sfd-body'),bB=document.getElementById('bmd-body');
+  if(loads.length===0){
+    sB.innerHTML='<div class="no-load-msg">Add a load to generate diagrams</div>';
+    bB.innerHTML='<div class="no-load-msg">Add a load to generate diagrams</div>';
+    return;
+  }
+  const RA=calcRA();
+
+  sB.innerHTML='<canvas class="diag-canvas" id="sfd-cv"></canvas>';
+  const sc=document.getElementById('sfd-cv');sc.width=sB.clientWidth||440;sc.height=160;
+  renderSFD(sc,RA);
+
+  bB.innerHTML='<canvas class="diag-canvas" id="bmd-cv"></canvas>';
+  const bc=document.getElementById('bmd-cv');bc.width=bB.clientWidth||440;bc.height=160;
+  renderBMD(bc,RA);
+}
+
+// Collect critical x positions for sampling
+function critXSet(){
+  const s=new Set([0,L]);
+  for(const ld of loads){
+    if(ld.type==='point')s.add(ld.a);
+    else if(ld.type==='dist'){s.add(ld.c);s.add(ld.d);}
+    else if(ld.type==='moment'){
+      s.add(ld.a);
+      s.add(ld.a+1e-9); // for the moment jump in BMD
+    }
+  }
+  return [...s].sort((a,b)=>a-b);
+}
+
+function renderSFD(cv,RA){
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const pL=72,pR=18,pT=18,pB=34,pw=W-pL-pR,ph=H-pT-pB;
+
+  // Build shear trace
+  const crit=critXSet().filter(x=>!isNaN(x));
+  const trace=[{x:0,V:0},{x:0,V:RA}];
+  for(let i=0;i<crit.length-1;i++){
+    const x0=crit[i],x1=crit[i+1];
+    if(x1-x0<1e-8)continue;
+    const hasDist=loads.some(ld=>ld.type==='dist'&&ld.c<x1&&ld.d>x0);
+    if(hasDist){const N=24;for(let j=1;j<N;j++)trace.push({x:x0+(j/N)*(x1-x0),V:shearAt(x0+(j/N)*(x1-x0),RA,false)});}
+    trace.push({x:x1,V:shearAt(x1,RA,false)});
+    if(i<crit.length-2)trace.push({x:x1,V:shearAt(x1,RA,true)});
+  }
+  trace.push({x:L,V:0});
+
+  let maxAbs=1e-9;for(const p of trace)maxAbs=Math.max(maxAbs,Math.abs(p.V));
+  maxAbs*=1.3;
+  const z0Y=pT+ph/2;
+  function cx(xm){return pL+(xm/L)*pw}
+  function cy(v){return z0Y-(v/maxAbs)*(ph/2)}
+
+  // Fill
+  let seg=null;
+  function flushSeg(){
+    if(!seg||seg.pts.length<2)return;
+    ctx.fillStyle=seg.sign>=0?'rgba(52,211,153,0.1)':'rgba(251,146,60,0.09)';
+    ctx.beginPath();ctx.moveTo(cx(seg.pts[0].x),z0Y);
+    for(const p of seg.pts)ctx.lineTo(cx(p.x),cy(p.V));
+    ctx.lineTo(cx(seg.pts[seg.pts.length-1].x),z0Y);ctx.closePath();ctx.fill();
+    seg=null;
+  }
+  for(const p of trace){
+    const s=Math.sign(p.V)||0;
+    if(!seg)seg={pts:[p],sign:s};
+    else if(s!==0&&seg.sign!==0&&s!==seg.sign){flushSeg();seg={pts:[p],sign:s};}
+    else{seg.pts.push(p);if(s!==0)seg.sign=s;}
+  }
+  flushSeg();
+
+  ctx.strokeStyle='#2a4060';ctx.setLineDash([5,4]);ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pL,z0Y);ctx.lineTo(pL+pw,z0Y);ctx.stroke();ctx.setLineDash([]);
+
+  ctx.strokeStyle='#34d399';ctx.lineWidth=2.5;
+  ctx.beginPath();let fi=true;
+  for(const p of trace){if(fi){ctx.moveTo(cx(p.x),cy(p.V));fi=false;}else ctx.lineTo(cx(p.x),cy(p.V));}
+  ctx.stroke();
+
+  // Colored dots at load positions
+  for(const ld of loads){
+    if(ld.type==='point'){
+      ctx.fillStyle=ld.color;
+      ctx.beginPath();ctx.arc(cx(ld.a),cy(shearAt(ld.a,RA,false)),3.5,0,2*Math.PI);ctx.fill();
+      ctx.beginPath();ctx.arc(cx(ld.a),cy(shearAt(ld.a,RA,true)),3.5,0,2*Math.PI);ctx.fill();
+    }else if(ld.type==='dist'){
+      ctx.fillStyle=ld.color;
+      for(const x of[ld.c,ld.d]){ctx.beginPath();ctx.arc(cx(x),cy(shearAt(x,RA,false)),3,0,2*Math.PI);ctx.fill();}
+    }
+    // Moments: no shear jump, just show a vertical marker
+    else if(ld.type==='moment'){
+      ctx.strokeStyle=ld.color;ctx.globalAlpha=0.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(cx(ld.a),pT);ctx.lineTo(cx(ld.a),pT+ph);ctx.stroke();
+      ctx.setLineDash([]);ctx.globalAlpha=1;
+    }
+  }
+
+  // Axes & labels
+  ctx.strokeStyle='#334155';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pL,pT);ctx.lineTo(pL,pT+ph);ctx.stroke();
+  ctx.font='10px "DM Mono",monospace';
+  ctx.fillStyle='#34d399';ctx.textAlign='left';ctx.fillText('V (kN)',pL+4,pT+10);
+  ctx.fillStyle='#64748b';ctx.textAlign='right';
+  ctx.fillText('0',pL-4,z0Y+4);
+  ctx.fillText(`+${calcRA().toFixed(1)}`,pL-4,cy(calcRA())+4);
+  const rbe=shearAt(L-1e-9,calcRA(),false);
+  if(Math.abs(rbe)>0.01)ctx.fillText(`${rbe.toFixed(1)}`,pL-4,cy(rbe)+4);
+  ctx.fillStyle='#4a6a88';ctx.textAlign='center';
+  ctx.fillText('0',pL,H-6);ctx.fillText(`${L}m`,pL+pw,H-6);
+  const usedX=new Set([0,L]);
+  for(const ld of loads){
+    const pts=ld.type==='point'?[ld.a]:ld.type==='dist'?[ld.c,ld.d]:[];
+    for(const x of pts){const xr=Math.round(x*100)/100;if(!usedX.has(xr)&&cx(x)-pL>18&&pL+pw-cx(x)>18){ctx.fillStyle=ld.color;ctx.fillText(`${(+x.toFixed(2))}m`,cx(x),H-6);usedX.add(xr);}}
+  }
+}
+
+function renderBMD(cv,RA){
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const pL=72,pR=18,pT=18,pB=34,pw=W-pL-pR,ph=H-pT-pB;
+
+  // Dense x samples (critXSet already includes a and a+1e-9 for moments)
+  const crit=critXSet().filter(x=>!isNaN(x));
+  const xs=[];
+  for(let i=0;i<crit.length-1;i++){
+    xs.push(crit[i]);
+    const x0=crit[i],x1=crit[i+1];
+    if(x1-x0<1e-8)continue;
+    const hasDist=loads.some(ld=>ld.type==='dist'&&ld.c<x1&&ld.d>x0);
+    if(hasDist){const N=28;for(let j=1;j<N;j++)xs.push(x0+(j/N)*(x1-x0));}
+  }
+  xs.push(L);
+  const ms=xs.map(x=>momentAt(x,RA));
+
+  let maxM=1e-9,minM=0;
+  for(const m of ms){maxM=Math.max(maxM,m);minM=Math.min(minM,m);}
+  const span=Math.max(maxM-minM,1e-9)*1.25;
+  const baseY=pT+ph*(maxM/span+0.025);
+
+  function cx(xm){return pL+(xm/L)*pw}
+  function cy(m){return baseY-m/span*ph}
+
+  // Fill
+  ctx.fillStyle='rgba(167,139,250,0.12)';
+  ctx.beginPath();ctx.moveTo(cx(xs[0]),baseY);
+  for(let i=0;i<xs.length;i++)ctx.lineTo(cx(xs[i]),cy(ms[i]));
+  ctx.lineTo(cx(xs[xs.length-1]),baseY);ctx.closePath();ctx.fill();
+
+  // Zero baseline
+  ctx.strokeStyle='#2a4060';ctx.setLineDash([5,4]);ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pL,baseY);ctx.lineTo(pL+pw,baseY);ctx.stroke();ctx.setLineDash([]);
+
+  // Dashed verticals at dist/point load positions
+  for(const ld of loads){
+    if(ld.type==='dist'){
+      for(const x of[ld.c,ld.d]){
+        const m=momentAt(x,RA);
+        ctx.strokeStyle=ld.color;ctx.globalAlpha=0.2;ctx.setLineDash([3,3]);
+        ctx.beginPath();ctx.moveTo(cx(x),cy(m));ctx.lineTo(cx(x),baseY);ctx.stroke();
+        ctx.setLineDash([]);ctx.globalAlpha=1;
+      }
+    }
+  }
+
+  // BMD curve
+  ctx.strokeStyle='#a78bfa';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(cx(xs[0]),cy(ms[0]));
+  for(let i=1;i<xs.length;i++)ctx.lineTo(cx(xs[i]),cy(ms[i]));
+  ctx.stroke();
+
+  // Moment load jumps: draw colored vertical segments + dots
+  for(const ld of loads.filter(ld=>ld.type==='moment')){
+    const mBefore=momentAt(ld.a,RA);       // just before (a < a is false)
+    const mAfter=momentAt(ld.a+1e-9,RA);  // just after (includes -ld.M jump for CCW+ve)
+    // Colored jump line
+    ctx.strokeStyle=ld.color;ctx.lineWidth=2;ctx.globalAlpha=0.85;
+    ctx.beginPath();ctx.moveTo(cx(ld.a),cy(mBefore));ctx.lineTo(cx(ld.a),cy(mAfter));ctx.stroke();
+    ctx.globalAlpha=1;
+    // Dots at before/after
+    ctx.fillStyle=ld.color;
+    ctx.beginPath();ctx.arc(cx(ld.a),cy(mBefore),3.5,0,2*Math.PI);ctx.fill();
+    ctx.beginPath();ctx.arc(cx(ld.a),cy(mAfter), 3.5,0,2*Math.PI);ctx.fill();
+    // Label the jump magnitude
+    const idx=loads.indexOf(ld)+1;
+    ctx.font='9px "DM Mono",monospace';ctx.textAlign='left';
+    ctx.fillText(`M${idx}=${ld.M}kN·m`,cx(ld.a)+5,(cy(mBefore)+cy(mAfter))/2+4);
+  }
+
+  // Colored dots at point/dist load positions
+  const labelledM=new Set();
+  for(const ld of loads){
+    const pts=ld.type==='point'?[ld.a]:ld.type==='dist'?[ld.c,ld.d]:[];
+    for(const x of pts){
+      const m=momentAt(x,RA);
+      ctx.fillStyle=ld.color;
+      ctx.beginPath();ctx.arc(cx(x),cy(m),3.5,0,2*Math.PI);ctx.fill();
+      const mr=Math.round(m*10)/10;
+      if(!labelledM.has(mr)&&Math.abs(m)>0.01){
+        ctx.font='9px "DM Mono",monospace';ctx.textAlign='center';
+        ctx.fillText(`${m.toFixed(1)}`,cx(x),cy(m)-(m>=0?10:-4));
+        labelledM.add(mr);
+      }
+    }
+  }
+
+  // Axes & labels
+  ctx.strokeStyle='#334155';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pL,pT);ctx.lineTo(pL,pT+ph);ctx.stroke();
+  ctx.font='10px "DM Mono",monospace';
+  ctx.fillStyle='#a78bfa';ctx.textAlign='left';ctx.fillText('M (kN·m)',pL+4,pT+10);
+  ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.fillText('0',pL-4,baseY+4);
+  if(maxM>0.01)ctx.fillText(`${maxM.toFixed(1)}`,pL-4,cy(maxM)+4);
+  if(minM<-0.01)ctx.fillText(`${minM.toFixed(1)}`,pL-4,cy(minM)+4);
+  ctx.fillStyle='#4a6a88';ctx.textAlign='center';
+  ctx.fillText('0',pL,H-6);ctx.fillText(`${L}m`,pL+pw,H-6);
+  const usedX=new Set([0,L]);
+  for(const ld of loads){
+    const pts=ld.type==='point'?[ld.a]:ld.type==='dist'?[ld.c,ld.d]:ld.type==='moment'?[ld.a]:[];
+    for(const x of pts){const xr=Math.round(x*100)/100;if(!usedX.has(xr)&&cx(x)-pL>18&&pL+pw-cx(x)>18){ctx.fillStyle=ld.color;ctx.fillText(`${(+x.toFixed(2))}m`,cx(x),H-6);usedX.add(xr);}}
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UPDATE ALL
+// ══════════════════════════════════════════════════════════════
+function updateAll(){
+  const sel=loads.find(ld=>ld.id===selectedId)||null;
+
+  // Palette labels
+  document.getElementById('pt-lbl').innerHTML=`${fF(defaultP)}<br>${uF()}`;
+  document.getElementById('dl-lbl').innerHTML=`${fW(defaultW1)}→${fW(defaultW2)}<br>${uW()}`;
+  document.getElementById('mom-lbl').innerHTML=`${fM(defaultM)}<br>${uM()}`;
+  document.getElementById('pal-count').textContent=`${loads.length} / ${MAX_LOADS}`;
+
+  // Remove button
+  document.getElementById('btn-remove').disabled=!sel;
+
+  // Selection bar
+  const bar=document.getElementById('sel-bar');
+  if(!sel){bar.style.display='none';}
+  else{
+    bar.style.display='flex';
+    bar.style.borderColor=sel.color;
+    document.getElementById('sel-dot').style.background=sel.color;
+    const idx=loads.indexOf(sel)+1;
+    const nm=document.getElementById('sel-name');
+    nm.style.color=sel.color;
+
+    const fields=document.getElementById('sel-fields');
+    if(sel.type==='point'){
+      nm.textContent=`P${idx} — point load`;
+      fields.innerHTML=`
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">Force P${idx}</label>
+          <div class="irow"><input type="number" id="se-P" value="${toDisp(sel.P,'force').toFixed(2)}" step="1" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uF()}</span></div>
+        </div>
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">Position a</label>
+          <div class="irow"><input type="number" id="se-a" value="${toDisp(sel.a,'length').toFixed(3)}" min="0" max="${toDisp(L,'length').toFixed(3)}" step="0.01" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uL()}</span></div>
+        </div>`;
+      chg('se-P',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){sel.P=fromDisp(v,'force');updateAll();}});
+      chg('se-a',e=>{const v=parseFloat(e.target.value);const si=fromDisp(v,'length');if(!isNaN(si)&&si>=0&&si<=L){sel.a=si;updateAll();}});
+    }
+    else if(sel.type==='dist'){
+      nm.textContent=`w${idx} — dist load`;
+      fields.innerHTML=`
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">Start w₁</label>
+          <div class="irow"><input type="number" id="se-w1" value="${toDisp(sel.w1,'fdist').toFixed(2)}" step="1" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uW()}</span></div>
+        </div>
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">End w₂</label>
+          <div class="irow"><input type="number" id="se-w2" value="${toDisp(sel.w2,'fdist').toFixed(2)}" step="1" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uW()}</span></div>
+        </div>
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">Start c</label>
+          <div class="irow"><input type="number" id="se-c" value="${toDisp(sel.c,'length').toFixed(3)}" min="0" step="0.01" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uL()}</span></div>
+        </div>
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">End d</label>
+          <div class="irow"><input type="number" id="se-d" value="${toDisp(sel.d,'length').toFixed(3)}" max="${toDisp(L,'length').toFixed(3)}" step="0.01" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uL()}</span></div>
+        </div>`;
+      chg('se-w1',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){sel.w1=fromDisp(v,'fdist');updateAll();}});
+      chg('se-w2',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){sel.w2=fromDisp(v,'fdist');updateAll();}});
+      chg('se-c',e=>{const v=parseFloat(e.target.value);const si=fromDisp(v,'length');if(!isNaN(si)&&si>=0&&si<sel.d){sel.c=si;updateAll();}});
+      chg('se-d',e=>{const v=parseFloat(e.target.value);const si=fromDisp(v,'length');if(!isNaN(si)&&si>sel.c&&si<=L){sel.d=si;updateAll();}});
+    }
+    else if(sel.type==='moment'){
+      nm.textContent=`M${idx} — applied moment`;
+      fields.innerHTML=`
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">Moment M${idx}</label>
+          <div class="irow"><input type="number" id="se-M" value="${toDisp(sel.M,'moment').toFixed(2)}" step="1" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uM()}</span></div>
+        </div>
+        <div class="ctrl" style="border-color:${sel.color}">
+          <label style="color:${sel.color}">Position a</label>
+          <div class="irow"><input type="number" id="se-ma" value="${toDisp(sel.a,'length').toFixed(3)}" min="0" max="${toDisp(L,'length').toFixed(3)}" step="0.01" style="color:${sel.color};border-color:${sel.color}"><span class="unit">${uL()}</span></div>
+        </div>
+        <div style="font-size:.6rem;color:${sel.color};align-self:center;padding:4px">+ve = CCW</div>`;
+      chg('se-M',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){sel.M=fromDisp(v,'moment');updateAll();}});
+      chg('se-ma',e=>{const v=parseFloat(e.target.value);const si=fromDisp(v,'length');if(!isNaN(si)&&si>=0&&si<=L){sel.a=si;updateAll();}});
+    }
+  }
+
+  // Results
+  const raEl=document.getElementById('ra-val'),rbEl=document.getElementById('rb-val'),mmEl=document.getElementById('mm-val');
+  const lblRA=document.getElementById('lbl-ra'),lblRB=document.getElementById('lbl-rb'),lblMM=document.getElementById('lbl-mm');
+  const unitRA=document.getElementById('unit-ra'),unitRB=document.getElementById('unit-rb'),unitMM=document.getElementById('unit-mm');
+  if(loads.length===0){
+    raEl.textContent=rbEl.textContent=mmEl.textContent='—';
+    raEl.classList.add('dash');rbEl.classList.add('dash');mmEl.classList.add('dash');
+  }else if(beamType==='cantilever'){
+    const RA=calcRA();
+    const MA=momentAtCantilever(0);
+    const critX=[0,...loads.map(ld=>ld.type==='point'?[ld.a]:ld.type==='dist'?[ld.c,(ld.c+ld.d)/2,ld.d]:ld.type==='moment'?[ld.a,ld.a+1e-9]:[]).flat(),L];
+    const allMs=critX.map(x=>momentAtCantilever(x));
+    const Mmax=allMs.reduce((m,v)=>Math.abs(v)>Math.abs(m)?v:m,0);
+    lblRA.textContent='Reaction RA';      unitRA.textContent=`${uF()} ↑`;
+    lblRB.textContent='Fixed End Moment'; unitRB.textContent=uM();
+    lblMM.textContent='Max |Moment|';     unitMM.textContent=uM();
+    raEl.textContent=fF(RA);              raEl.classList.remove('dash');
+    rbEl.textContent=fM(MA);              rbEl.classList.remove('dash');
+    mmEl.textContent=fM(Math.abs(Mmax));  mmEl.classList.remove('dash');
+  }else{
+    lblRA.textContent='Reaction at A'; unitRA.textContent=`${uF()} ↑`;
+    lblRB.textContent='Reaction at B'; unitRB.textContent=`${uF()} ↑`;
+    lblMM.textContent='Max Moment';    unitMM.textContent=uM();
+    const RA=calcRA(),RB=calcRB();
+    const critX=[0,...loads.map(ld=>ld.type==='point'?[ld.a]:ld.type==='dist'?[ld.c,(ld.c+ld.d)/2,ld.d]:ld.type==='moment'?[ld.a,ld.a+1e-9]:[]).flat(),L];
+    const Mmax=Math.max(...critX.map(x=>momentAt(x,RA)));
+    raEl.textContent=fF(RA);    raEl.classList.remove('dash');
+    rbEl.textContent=fF(RB);    rbEl.classList.remove('dash');
+    mmEl.textContent=fM(Mmax);  mmEl.classList.remove('dash');
+  }
+
+  drawBeam();
+  drawDiagrams();
+}
+
+function chg(id,fn){const el=document.getElementById(id);if(el)el.addEventListener('change',fn);}
+
+// ══════════════════════════════════════════════════════════════
+//  CONTROLS
+// ══════════════════════════════════════════════════════════════
+document.getElementById('inp-L').addEventListener('change',function(){
+  const v=parseFloat(this.value);
+  if(v>0){
+    L=fromDisp(v,'length');
+    for(const ld of loads){
+      if(ld.type==='point'||ld.type==='moment')ld.a=clamp(ld.a,0,L);
+      else{ld.c=clamp(ld.c,0,L);ld.d=clamp(ld.d,ld.c+0.001,L);}
+    }
+    updateAll();
+  }
+});
+document.getElementById('new-P').addEventListener('change',function(){
+  const v=parseFloat(this.value);
+  if(!isNaN(v)){defaultP=fromDisp(v,'force');document.getElementById('pt-lbl').innerHTML=`${fF(defaultP)}<br>${uF()}`;}
+});
+document.getElementById('new-w1').addEventListener('change',function(){
+  const v=parseFloat(this.value);
+  if(!isNaN(v)){defaultW1=fromDisp(v,'fdist');document.getElementById('dl-lbl').innerHTML=`${fW(defaultW1)}→${fW(defaultW2)}<br>${uW()}`;}
+});
+document.getElementById('new-w2').addEventListener('change',function(){
+  const v=parseFloat(this.value);
+  if(!isNaN(v)){defaultW2=fromDisp(v,'fdist');document.getElementById('dl-lbl').innerHTML=`${fW(defaultW1)}→${fW(defaultW2)}<br>${uW()}`;}
+});
+document.getElementById('new-M').addEventListener('change',function(){
+  const v=parseFloat(this.value);
+  if(!isNaN(v)){defaultM=fromDisp(v,'moment');document.getElementById('mom-lbl').innerHTML=`${fM(defaultM)}<br>${uM()}`;}
+});
+
+function delSelected(){if(selectedId===null)return;loads=loads.filter(ld=>ld.id!==selectedId);selectedId=null;updateAll();}
+document.getElementById('btn-remove').addEventListener('click',delSelected);
+document.getElementById('sel-del').addEventListener('click',delSelected);
+document.getElementById('btn-clear').addEventListener('click',()=>{loads=[];selectedId=null;nextId=1;colorIdx=0;updateAll();});
+
+document.getElementById('btn-type')?.addEventListener('click',function(){
+  beamType=beamType==='simply_supported'?'cantilever':'simply_supported';
+  updateAll();
+});
+
+function setBeamType(type){
+  beamType=type;
+  document.getElementById('btn-ss').classList.toggle('active',type==='simply_supported');
+  document.getElementById('btn-cl').classList.toggle('active',type==='cantilever');
+  document.getElementById('beam-badge').textContent=
+    type==='cantilever'
+      ?'Cantilever · Point · Distributed · Moment Loads'
+      :'Simply Supported · Point · Distributed · Moment Loads';
+  updateAll();
+}
+document.addEventListener('keydown',e=>{
+  if((e.key==='Delete'||e.key==='Backspace')&&selectedId!=null&&document.activeElement.tagName!=='INPUT')delSelected();
+  if(e.key==='Escape'){selectedId=null;updateAll();}
+});
+
+// ══════════════════════════════════════════════════════════════
+//  PALETTE DRAG → BEAM
+// ══════════════════════════════════════════════════════════════
+let palType=null;
+function setupPalette(tileId,type){
+  const tile=document.getElementById(tileId);
+  tile.addEventListener('pointerdown',e=>{
+    if(loads.length>=MAX_LOADS)return;
+    palType=type;tile.classList.add('grabbing');tile.setPointerCapture(e.pointerId);
+    ghost.style.display='block';ghost.innerHTML=tile.innerHTML;
+    ghost.style.left=(e.clientX-20)+'px';ghost.style.top=(e.clientY-36)+'px';
+    e.preventDefault();
+  });
+  tile.addEventListener('pointermove',e=>{
+    if(!palType)return;
+    ghost.style.left=(e.clientX-20)+'px';ghost.style.top=(e.clientY-36)+'px';
+    const r=bPanel.getBoundingClientRect();
+    bPanel.classList.toggle('dragover',e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom);
+  });
+  tile.addEventListener('pointerup',e=>{
+    if(!palType)return;
+    tile.classList.remove('grabbing');ghost.style.display='none';bPanel.classList.remove('dragover');
+    const r=bPanel.getBoundingClientRect();
+    if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){
+      const pos=beamPos(svgX(e.clientX));
+      const col=LOAD_COLORS[colorIdx%LOAD_COLORS.length];colorIdx++;
+      let ld;
+      if(palType==='point')     ld={type:'point',id:nextId++,P:defaultP,a:pos,color:col};
+      else if(palType==='moment')ld={type:'moment',id:nextId++,M:defaultM,a:pos,color:col};
+      else{
+        const span=0.2,half=L*span/2;
+        ld={type:'dist',id:nextId++,w1:defaultW1,w2:defaultW2,
+          c:clamp(pos-half,0,L-L*span),d:clamp(pos+half,L*span,L),color:col};
+        ld.d=Math.max(ld.c+0.01,ld.d);
+      }
+      loads.push(ld);selectedId=ld.id;updateAll();
+    }
+    palType=null;
+  });
+}
+setupPalette('pt-tile','point');
+setupPalette('dl-tile','dist');
+setupPalette('mom-tile','moment');
+
+// ══════════════════════════════════════════════════════════════
+//  DRAG / CLICK: LOADS ON BEAM
+// ══════════════════════════════════════════════════════════════
+let dragId=null,dragHandle=null,dragStartSvgX=null,didMove=false;
+
+svg.addEventListener('pointerdown',e=>{
+  const idAttr=e.target.getAttribute('data-id');
+  const hAttr=e.target.getAttribute('data-h');
+  if(idAttr&&hAttr){
+    dragId=parseInt(idAttr);dragHandle=hAttr;
+    dragStartSvgX=svgX(e.clientX);didMove=false;
+    svg.setPointerCapture(e.pointerId);e.preventDefault();
+  }else{selectedId=null;updateAll();}
+});
+
+svg.addEventListener('pointermove',e=>{
+  if(!dragId)return;
+  const sx=svgX(e.clientX);
+  if(Math.abs(sx-dragStartSvgX)>4)didMove=true;
+  if(!didMove)return;
+  const ld=loads.find(l=>l.id===dragId);if(!ld)return;
+  const pos=beamPos(sx);
+  if(ld.type==='point'||ld.type==='moment'){
+    ld.a=clamp(pos,0,L);
+  }else{
+    const w=ld.d-ld.c;
+    if(dragHandle==='left')ld.c=clamp(pos,0,ld.d-0.01);
+    else if(dragHandle==='right')ld.d=clamp(pos,ld.c+0.01,L);
+    else{const delta=(sx-dragStartSvgX)/(BX1-BX0)*L;dragStartSvgX=sx;const nc=clamp(ld.c+delta,0,L-w);ld.c=nc;ld.d=nc+w;}
+  }
+  updateAll();
+  svg.style.cursor=dragHandle==='body'?'move':'ew-resize';
+});
+
+svg.addEventListener('pointerup',()=>{
+  if(dragId){
+    if(!didMove){selectedId=(selectedId===dragId)?null:dragId;updateAll();}
+    dragId=null;svg.style.cursor='';
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+updateAll();
+</script>
+</body>
+</html>
