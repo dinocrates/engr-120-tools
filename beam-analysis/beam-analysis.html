@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beam Analysis Tool</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
   <style>
     :root{--bg:#0b1826;--panel:#0e2035;--border:#1b3857;--accent:#38bdf8;
       --sfd:#34d399;--bmd:#a78bfa;--rx:#22d3ee;--text:#cbd5e1;--dim:#4e6e8a}
@@ -56,48 +58,114 @@
       transition:all .2s;white-space:nowrap}
     #sel-del:hover{background:rgba(248,113,113,.1)}
 
-    .main-row{display:flex;gap:10px;margin-bottom:10px;align-items:stretch}
-    .palette-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;
-      padding:10px 8px;display:flex;flex-direction:column;align-items:center;
-      gap:5px;width:108px;flex-shrink:0;user-select:none}
-    .pal-sect-lbl{font-size:.48rem;text-transform:uppercase;letter-spacing:.1em;
-      color:var(--dim);text-align:center}
-    .pal-divider{width:80%;height:1px;background:var(--border);margin:3px 0}
-    .force-tile{cursor:grab;border-radius:6px;padding:6px 5px;display:flex;flex-direction:column;
-      align-items:center;gap:2px;transition:background .2s,transform .15s;touch-action:none;border:1px dashed}
-    .force-tile:hover{transform:scale(1.05)}
+    .main-row{display:block;margin-bottom:10px}
+
+    /* ── Horizontal palette bar ─────────────────── */
+    .palette-bar{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+    .pal-load-card{display:flex;align-items:stretch;background:var(--panel);
+      border:1px solid var(--border);border-radius:8px;overflow:hidden;
+      flex:1;min-width:155px;transition:border-color .15s}
+    .pal-load-card:hover{border-color:rgba(255,255,255,.12)}
+
+    /* drag zone — left side of each card */
+    .force-tile{cursor:grab;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;gap:3px;padding:10px 12px;flex-shrink:0;
+      border-right:1px dashed;transition:background .2s,transform .15s;touch-action:none;
+      min-width:64px}
+    .force-tile:hover{filter:brightness(1.2)}
     .force-tile.grabbing{opacity:.4;transform:scale(.95);cursor:grabbing}
-    .tile-lbl{font-size:.57rem;text-align:center;line-height:1.3}
-    .pal-input-row{display:flex;align-items:center;gap:3px;font-size:.56rem;color:var(--dim)}
+    .tile-lbl{font-size:.58rem;text-align:center;line-height:1.3;white-space:nowrap}
+
+    /* inputs — right side of each card */
+    .pal-card-body{display:flex;flex-direction:column;justify-content:center;
+      gap:4px;padding:8px 10px;flex:1}
+    .pal-sect-lbl{font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;
+      color:var(--dim);margin-bottom:1px}
+    .pal-input-row{display:flex;align-items:center;gap:4px;font-size:.6rem;color:var(--dim)}
     .pal-input-row input{background:#060e1a;border:1px solid var(--border);border-radius:4px;
-      font-family:'DM Mono',monospace;font-size:.68rem;width:48px;text-align:right;
-      padding:3px 4px;outline:none;color:var(--accent);-moz-appearance:textfield}
+      font-family:'DM Mono',monospace;font-size:.72rem;width:52px;text-align:right;
+      padding:3px 5px;outline:none;color:var(--accent);-moz-appearance:textfield}
     .pal-input-row input::-webkit-inner-spin-button{opacity:0}
-    .pal-count{font-size:.48rem;color:var(--dim);text-align:center}
+    .pal-input-row input:focus{border-color:var(--accent)}
+    .pal-divider{display:none} /* no longer needed */
+
+    .pal-count-chip{display:flex;align-items:center;justify-content:center;
+      background:var(--panel);border:1px solid var(--border);border-radius:8px;
+      padding:0 14px;font-size:.55rem;color:var(--dim);white-space:nowrap;flex-shrink:0}
 
     .beam-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;
-      flex:1;overflow:hidden;transition:border-color .2s,background .2s}
+      width:100%;overflow:hidden;transition:border-color .2s,background .2s}
     .beam-panel.dragover{border-color:#fb923c;background:rgba(251,146,60,.04)}
     #beam-svg{width:100%;display:block}
     #ghost{position:fixed;pointer-events:none;z-index:1000;display:none;opacity:.85}
 
-    .results-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+    /* ── Stacked column: palette → beam → results → SFD → BMD ── */
+    .diagrams-col{display:flex;flex-direction:column;gap:8px;width:100%}
+
+    .results-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
     .res-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;
-      padding:10px 12px;text-align:center}
-    .res-lbl{font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:3px}
-    .res-val{font-size:1.2rem;font-weight:500;color:#f1f5f9;transition:color .3s}
-    .res-unit{font-size:.58rem;color:var(--dim);margin-top:1px}
+      padding:8px 10px;text-align:center}
+    .res-lbl{font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:2px}
+    .res-val{font-size:1.1rem;font-weight:500;color:#f1f5f9;transition:color .3s}
+    .res-unit{font-size:.55rem;color:var(--dim);margin-top:1px}
     .res-card.ra .res-val,.res-card.rb .res-val{color:var(--rx)}
     .res-card.mm .res-val{color:var(--bmd)}
     .res-val.dash{color:var(--dim)!important}
 
-    .diagrams-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .diag-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-    .diag-hdr{display:flex;align-items:center;gap:6px;padding:8px 12px;
+    .diag-hdr{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 12px;
       border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-size:.75rem;font-weight:700}
+    .diag-hdr-left{display:flex;align-items:center;gap:6px}
+    .eq-btn{background:transparent;border:1px solid var(--border);border-radius:5px;
+      color:var(--dim);font-family:'DM Mono',monospace;font-size:.6rem;padding:3px 9px;
+      cursor:pointer;transition:all .2s;white-space:nowrap;letter-spacing:.03em}
+    .eq-btn:hover{color:#f1f5f9;border-color:#f1f5f9;background:rgba(255,255,255,.05)}
+    .eq-btn.sfd-btn:hover{color:var(--sfd);border-color:var(--sfd)}
+    .eq-btn.bmd-btn:hover{color:var(--bmd);border-color:var(--bmd)}
+
+    /* ── Equations modal ───────────────────────── */
+    .eq-overlay{position:fixed;inset:0;background:rgba(5,12,24,.8);z-index:2000;
+      display:flex;align-items:center;justify-content:center;padding:20px;
+      backdrop-filter:blur(4px);opacity:0;transition:opacity .2s;pointer-events:none}
+    .eq-overlay.open{opacity:1;pointer-events:all}
+    .eq-panel{background:#0d1f35;border:1px solid var(--border);border-radius:12px;
+      width:100%;max-width:680px;max-height:82vh;display:flex;flex-direction:column;
+      overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);
+      transform:translateY(8px);transition:transform .2s}
+    .eq-overlay.open .eq-panel{transform:translateY(0)}
+    .eq-panel-hdr{display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+    .eq-panel-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:#f1f5f9}
+    .eq-panel-title span{font-size:.62rem;font-family:'DM Mono',monospace;font-weight:400;
+      color:var(--dim);margin-left:8px}
+    .eq-close{background:transparent;border:1px solid var(--border);border-radius:5px;
+      color:var(--dim);font-family:'DM Mono',monospace;font-size:.7rem;padding:3px 10px;
+      cursor:pointer;transition:all .2s}
+    .eq-close:hover{border-color:#f87171;color:#f87171}
+    .eq-body{overflow-y:auto;padding:16px 18px;flex:1}
+    .eq-body::-webkit-scrollbar{width:4px}
+    .eq-body::-webkit-scrollbar-track{background:transparent}
+    .eq-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    .eq-empty{color:var(--dim);font-size:.75rem;font-style:italic;text-align:center;padding:24px 0}
+    .eq-interval{display:grid;grid-template-columns:auto 1fr;gap:0;
+      margin-bottom:4px;border-radius:6px;overflow:hidden}
+    .eq-interval:last-child{margin-bottom:0}
+    .eq-range{background:rgba(255,255,255,.03);border:1px solid var(--border);
+      border-right:none;border-radius:6px 0 0 6px;
+      padding:10px 12px;font-size:.6rem;color:var(--dim);font-family:'DM Mono',monospace;
+      white-space:nowrap;display:flex;align-items:center}
+    .eq-expr{background:rgba(255,255,255,.02);border:1px solid var(--border);
+      border-left:2px solid;border-radius:0 6px 6px 0;
+      padding:10px 14px;overflow-x:auto;display:flex;align-items:center}
+    .eq-expr::-webkit-scrollbar{height:3px}
+    .eq-expr::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    /* KaTeX override for dark theme */
+    .eq-expr .katex{font-size:1.05em;color:#e2e8f0}
+    .eq-units-note{font-size:.55rem;color:var(--dim);margin-top:10px;text-align:right;
+      font-style:italic}
     .diag-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
     canvas.diag-canvas{display:block;width:100%}
-    .no-load-msg{height:120px;display:flex;align-items:center;justify-content:center;
+    .no-load-msg{height:110px;display:flex;align-items:center;justify-content:center;
       color:var(--dim);font-size:.68rem;font-style:italic}
 
     /* ── Beam type toggle ───────────────────────── */
@@ -117,9 +185,9 @@
     .beam-type-btn svg{flex-shrink:0;opacity:.8}
 
     @media(max-width:580px){
-      .diagrams-row,.results-row{grid-template-columns:1fr}
-      .main-row{flex-direction:column}
-      .palette-panel{flex-direction:row;width:100%;justify-content:center;flex-wrap:wrap}
+      .results-row{grid-template-columns:1fr 1fr}
+      .palette-bar{flex-direction:column}
+      .pal-load-card{min-width:100%}
     }
   </style>
 </head>
@@ -186,72 +254,120 @@
 </div>
 
 <div class="main-row">
-  <div class="palette-panel">
+  <div class="diagrams-col">
 
-    <div class="pal-sect-lbl">Point Load</div>
-    <div class="force-tile" id="pt-tile" style="border-color:#fb923c;background:rgba(251,146,60,.06)" touch-action="none">
-      <svg width="22" height="42" viewBox="0 0 22 42">
-        <line x1="11" y1="1" x2="11" y2="25" stroke="#fb923c" stroke-width="2.5" stroke-linecap="round"/>
-        <polygon points="11,41 2,23 20,23" fill="#fb923c"/>
-      </svg>
-      <div class="tile-lbl" id="pt-lbl" style="color:#fb923c">50<br>kN</div>
+    <!-- ── Horizontal palette bar ─────────────────────── -->
+    <div class="palette-bar">
+
+      <!-- Point Load -->
+      <div class="pal-load-card">
+        <div class="force-tile" id="pt-tile"
+             style="border-color:#fb923c;background:rgba(251,146,60,.08);border-right-color:#fb923c"
+             touch-action="none">
+          <svg width="20" height="38" viewBox="0 0 20 38">
+            <line x1="10" y1="1" x2="10" y2="22" stroke="#fb923c" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="10,37 2,21 18,21" fill="#fb923c"/>
+          </svg>
+          <div class="tile-lbl" id="pt-lbl" style="color:#fb923c">50<br>kN</div>
+        </div>
+        <div class="pal-card-body">
+          <div class="pal-sect-lbl">Point Load</div>
+          <div class="pal-input-row">
+            <input type="number" id="new-P" value="50" step="1">
+            <span id="pu-F">kN</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Distributed Load -->
+      <div class="pal-load-card">
+        <div class="force-tile" id="dl-tile"
+             style="border-color:#06b6d4;background:rgba(6,182,212,.08);border-right-color:#06b6d4"
+             touch-action="none">
+          <svg width="32" height="26" viewBox="0 0 32 26">
+            <line x1="1" y1="2" x2="31" y2="2" stroke="#06b6d4" stroke-width="1.5"/>
+            <line x1="6"  y1="2" x2="6"  y2="14" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
+            <polygon points="6,23 2,13 10,13" fill="#06b6d4"/>
+            <line x1="16" y1="2" x2="16" y2="14" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
+            <polygon points="16,23 12,13 20,13" fill="#06b6d4"/>
+            <line x1="26" y1="2" x2="26" y2="14" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
+            <polygon points="26,23 22,13 30,13" fill="#06b6d4"/>
+          </svg>
+          <div class="tile-lbl" id="dl-lbl" style="color:#06b6d4">10→10<br>kN/m</div>
+        </div>
+        <div class="pal-card-body">
+          <div class="pal-sect-lbl">Dist Load (start → end)</div>
+          <div class="pal-input-row">
+            <input type="number" id="new-w1" value="10" step="1">
+            <span style="color:var(--dim)">→</span>
+            <input type="number" id="new-w2" value="10" step="1">
+            <span id="pu-W">kN/m</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Moment -->
+      <div class="pal-load-card">
+        <div class="force-tile" id="mom-tile"
+             style="border-color:#e879f9;background:rgba(232,121,249,.08);border-right-color:#e879f9"
+             touch-action="none">
+          <svg width="28" height="28" viewBox="0 0 28 28">
+            <path d="M 14,2 A 12,12 0 1,1 2,14" fill="none" stroke="#e879f9" stroke-width="2.2" stroke-linecap="round"/>
+            <polygon points="2,14 9,7 0,21" fill="#e879f9"/>
+          </svg>
+          <div class="tile-lbl" id="mom-lbl" style="color:#e879f9">10<br>kN·m</div>
+        </div>
+        <div class="pal-card-body">
+          <div class="pal-sect-lbl">Moment (+ve = CCW)</div>
+          <div class="pal-input-row">
+            <input type="number" id="new-M" value="10" step="1">
+            <span id="pu-M">kN·m</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Load count chip -->
+      <div class="pal-count-chip" id="pal-count">0 / 8</div>
+
+    </div><!-- end palette-bar -->
+
+    <div class="beam-panel" id="beam-panel">
+      <svg id="beam-svg" viewBox="0 0 800 295" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <div class="pal-input-row"><input type="number" id="new-P" value="50" step="1"><span id="pu-F">kN</span></div>
 
-    <div class="pal-divider"></div>
-
-    <div class="pal-sect-lbl">Dist Load</div>
-    <div class="force-tile" id="dl-tile" style="border-color:#06b6d4;background:rgba(6,182,212,.06)" touch-action="none">
-      <svg width="34" height="28" viewBox="0 0 34 28">
-        <line x1="1" y1="3" x2="33" y2="3" stroke="#06b6d4" stroke-width="1.5"/>
-        <line x1="6" y1="3" x2="6" y2="17" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
-        <polygon points="6,26 2,16 10,16" fill="#06b6d4"/>
-        <line x1="17" y1="3" x2="17" y2="17" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
-        <polygon points="17,26 13,16 21,16" fill="#06b6d4"/>
-        <line x1="28" y1="3" x2="28" y2="17" stroke="#06b6d4" stroke-width="1.5" stroke-linecap="round"/>
-        <polygon points="28,26 24,16 32,16" fill="#06b6d4"/>
-      </svg>
-      <div class="tile-lbl" id="dl-lbl" style="color:#06b6d4">10→10<br>kN/m</div>
+    <div class="results-row">
+      <div class="res-card ra"><div class="res-lbl" id="lbl-ra">Reaction at A</div><div class="res-val dash" id="ra-val">—</div><div class="res-unit" id="unit-ra">kN ↑</div></div>
+      <div class="res-card mm"><div class="res-lbl" id="lbl-mm">Max Moment</div><div class="res-val dash" id="mm-val">—</div><div class="res-unit" id="unit-mm">kN·m</div></div>
+      <div class="res-card rb"><div class="res-lbl" id="lbl-rb">Reaction at B</div><div class="res-val dash" id="rb-val">—</div><div class="res-unit" id="unit-rb">kN ↑</div></div>
     </div>
-    <div class="pal-input-row"><input type="number" id="new-w1" value="10" step="1"><span>→</span></div>
-    <div class="pal-input-row"><input type="number" id="new-w2" value="10" step="1"><span id="pu-W">kN/m</span></div>
 
-    <div class="pal-divider"></div>
-
-    <div class="pal-sect-lbl">Moment</div>
-    <div class="force-tile" id="mom-tile" style="border-color:#e879f9;background:rgba(232,121,249,.06)" touch-action="none">
-      <svg width="30" height="30" viewBox="0 0 30 30">
-        <path d="M 15,2 A 13,13 0 1,1 2,15" fill="none" stroke="#e879f9" stroke-width="2.2" stroke-linecap="round"/>
-        <polygon points="2,15 10,8 0,23" fill="#e879f9"/>
-      </svg>
-      <div class="tile-lbl" id="mom-lbl" style="color:#e879f9">10<br>kN·m</div>
+    <div class="diag-card">
+      <div class="diag-hdr">
+        <div class="diag-hdr-left"><span class="diag-dot" style="background:#34d399"></span>Shear Force Diagram</div>
+        <button class="eq-btn sfd-btn" onclick="showEquations('V')">V(x) equations</button>
+      </div>
+      <div id="sfd-body"><div class="no-load-msg">Add a load to generate diagrams</div></div>
     </div>
-    <div class="pal-input-row"><input type="number" id="new-M" value="10" step="1"><span id="pu-M">kN·m</span></div>
-    <div style="font-size:.46rem;color:var(--dim);text-align:center;line-height:1.4">+ve = CCW</div>
 
-    <div class="pal-divider"></div>
-    <div class="pal-count" id="pal-count">0 / 8</div>
-  </div>
+    <div class="diag-card">
+      <div class="diag-hdr">
+        <div class="diag-hdr-left"><span class="diag-dot" style="background:#a78bfa"></span>Bending Moment Diagram</div>
+        <button class="eq-btn bmd-btn" onclick="showEquations('M')">M(x) equations</button>
+      </div>
+      <div id="bmd-body"><div class="no-load-msg">Add a load to generate diagrams</div></div>
+    </div>
 
-  <div class="beam-panel" id="beam-panel">
-    <svg id="beam-svg" viewBox="0 0 800 295" preserveAspectRatio="xMidYMid meet"></svg>
-  </div>
+  </div><!-- end diagrams-col -->
 </div>
 
-<div class="results-row">
-  <div class="res-card ra"><div class="res-lbl" id="lbl-ra">Reaction at A</div><div class="res-val dash" id="ra-val">—</div><div class="res-unit" id="unit-ra">kN ↑</div></div>
-  <div class="res-card mm"><div class="res-lbl" id="lbl-mm">Max Moment</div><div class="res-val dash" id="mm-val">—</div><div class="res-unit" id="unit-mm">kN·m</div></div>
-  <div class="res-card rb"><div class="res-lbl" id="lbl-rb">Reaction at B</div><div class="res-val dash" id="rb-val">—</div><div class="res-unit" id="unit-rb">kN ↑</div></div>
-</div>
-
-<div class="diagrams-row">
-  <div class="diag-card">
-    <div class="diag-hdr"><span class="diag-dot" style="background:#34d399"></span>Shear Force Diagram</div>
-    <div id="sfd-body"><div class="no-load-msg">Add a load to generate diagrams</div></div>
-  </div>
-  <div class="diag-card">
-    <div class="diag-hdr"><span class="diag-dot" style="background:#a78bfa"></span>Bending Moment Diagram</div>
-    <div id="bmd-body"><div class="no-load-msg">Add a load to generate diagrams</div></div>
+<!-- ── Piecewise equations modal ─────────────────────── -->
+<div class="eq-overlay" id="eq-overlay" onclick="eqOverlayClick(event)">
+  <div class="eq-panel" id="eq-panel">
+    <div class="eq-panel-hdr">
+      <div class="eq-panel-title" id="eq-title">V(x)</div>
+      <button class="eq-close" onclick="closeEquations()">✕ close</button>
+    </div>
+    <div class="eq-body" id="eq-body"></div>
   </div>
 </div>
 
@@ -540,7 +656,7 @@ function drawRxMomentArrow(x,M){
   svg.appendChild(mk('path',{d:arcPath,fill:'none',stroke:col,'stroke-width':'2.5','stroke-linecap':'round'}));
   const ax=cw?x-r:x+r;
   svg.appendChild(mk('polygon',{points:`${ax},${BY-11} ${ax-6},${BY+2} ${ax+6},${BY+2}`,fill:col}));
-  svg.appendChild(mkt(`${M.toFixed(2)} kN·m`,x,BY-r-9,col,'10px'));
+  svg.appendChild(mkt(`${fM(M)} ${uM()}`,x,BY-r-9,col,'10px'));
 }
 
 function drawPointLoad(ld,isSel){
@@ -554,7 +670,7 @@ function drawPointLoad(ld,isSel){
     stroke:c,'stroke-width':isSel?'3':'2.5','stroke-linecap':'round',opacity:dim}));
   if(down)svg.appendChild(mk('polygon',{points:`${lx},${tipY} ${lx-8},${tipY-15} ${lx+8},${tipY-15}`,fill:c,opacity:dim}));
   else     svg.appendChild(mk('polygon',{points:`${lx},${tipY} ${lx-8},${tipY+15} ${lx+8},${tipY+15}`,fill:c,opacity:dim}));
-  const lbl=mkt(`P${idx}=${ld.P}kN`,lx,down?tailY-2:tailY+14,c,'11px','middle','500');
+  const lbl=mkt(`P${idx}=${fF(ld.P)}${uF()}`,lx,down?tailY-2:tailY+14,c,'11px','middle','500');
   lbl.setAttribute('opacity',dim);svg.appendChild(lbl);
   svg.appendChild(mk('line',{x1:lx,y1:BY-BH/2-2,x2:lx,y2:BY+BH/2+2,
     stroke:c,'stroke-width':'1','stroke-dasharray':'3,3',opacity:String(parseFloat(dim)*0.3)}));
@@ -609,7 +725,7 @@ function drawDistLoad(ld,isSel){
     }
   }
 
-  const lbl=w1===w2?`w${idx}=${w1}kN/m`:`w${idx}:${w1}→${w2}kN/m`;
+  const lbl=w1===w2?`w${idx}=${fW(w1)}${uW()}`:`w${idx}:${fW(w1)}→${fW(w2)}${uW()}`;
   const midX=(x0+x1)/2;
   const topMost=Math.min(arrowEndY(w1>=0?Math.max(Math.abs(w1),0.001):0.001),arrowEndY(w2>=0?Math.max(Math.abs(w2),0.001):0.001));
   const lt=mkt(lbl,midX,Math.min(beamTop-DIST_H-4,topMost-4),color,'10px','middle','500');
@@ -650,7 +766,7 @@ function drawMomentLoad(ld,isSel){
     fill:c,opacity:dim}));
 
   // Label (above the symbol)
-  const lbl=mkt(`M${idx}=${ld.M}kN·m`,cx,cy-r-9,c,'11px','middle','500');
+  const lbl=mkt(`M${idx}=${fM(ld.M)}${uM()}`,cx,cy-r-9,c,'11px','middle','500');
   lbl.setAttribute('opacity',dim);svg.appendChild(lbl);
 
   // Drag handle: circle at center of arc
@@ -671,17 +787,15 @@ function drawRxArrow(x,F){
   const col='#22d3ee';
   const base=BY+BH/2+36;
   if(F>=0){
-    // Upward arrow
     const tail=base+48;
     svg.appendChild(mk('line',{x1:x,y1:base+12,x2:x,y2:tail,stroke:col,'stroke-width':'2','stroke-linecap':'round'}));
     svg.appendChild(mk('polygon',{points:`${x},${base} ${x-6},${base+13} ${x+6},${base+13}`,fill:col}));
-    svg.appendChild(mkt(`${F.toFixed(2)} kN`,x,tail+12,col,'10px'));
+    svg.appendChild(mkt(`${fF(F)} ${uF()}`,x,tail+12,col,'10px'));
   }else{
-    // Downward arrow
     const tip=base+50;
     svg.appendChild(mk('line',{x1:x,y1:base,x2:x,y2:tip-12,stroke:col,'stroke-width':'2','stroke-linecap':'round'}));
     svg.appendChild(mk('polygon',{points:`${x},${tip} ${x-6},${tip-12} ${x+6},${tip-12}`,fill:col}));
-    svg.appendChild(mkt(`${F.toFixed(2)} kN`,x,tip+12,col,'10px'));
+    svg.appendChild(mkt(`${fF(F)} ${uF()}`,x,tip+12,col,'10px'));
   }
 }
 
@@ -698,11 +812,11 @@ function drawDiagrams(){
   const RA=calcRA();
 
   sB.innerHTML='<canvas class="diag-canvas" id="sfd-cv"></canvas>';
-  const sc=document.getElementById('sfd-cv');sc.width=sB.clientWidth||440;sc.height=160;
+  const sc=document.getElementById('sfd-cv');sc.width=sB.clientWidth||700;sc.height=170;
   renderSFD(sc,RA);
 
   bB.innerHTML='<canvas class="diag-canvas" id="bmd-cv"></canvas>';
-  const bc=document.getElementById('bmd-cv');bc.width=bB.clientWidth||440;bc.height=160;
+  const bc=document.getElementById('bmd-cv');bc.width=bB.clientWidth||700;bc.height=170;
   renderBMD(bc,RA);
 }
 
@@ -723,7 +837,7 @@ function critXSet(){
 function renderSFD(cv,RA){
   const ctx=cv.getContext('2d');
   const W=cv.width,H=cv.height;
-  const pL=72,pR=18,pT=18,pB=34,pw=W-pL-pR,ph=H-pT-pB;
+  const pL=Math.round(W*BX0/VW),pR=Math.round(W*(VW-BX1)/VW),pT=14,pB=28,pw=W-pL-pR,ph=H-pT-pB;
 
   // Build shear trace
   const crit=critXSet().filter(x=>!isNaN(x));
@@ -792,25 +906,26 @@ function renderSFD(cv,RA){
   ctx.strokeStyle='#334155';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(pL,pT);ctx.lineTo(pL,pT+ph);ctx.stroke();
   ctx.font='10px "DM Mono",monospace';
-  ctx.fillStyle='#34d399';ctx.textAlign='left';ctx.fillText('V (kN)',pL+4,pT+10);
+  ctx.fillStyle='#34d399';ctx.textAlign='left';ctx.fillText(`V (${uF()})`,pL+4,pT+10);
   ctx.fillStyle='#64748b';ctx.textAlign='right';
   ctx.fillText('0',pL-4,z0Y+4);
-  ctx.fillText(`+${calcRA().toFixed(1)}`,pL-4,cy(calcRA())+4);
-  const rbe=shearAt(L-1e-9,calcRA(),false);
-  if(Math.abs(rbe)>0.01)ctx.fillText(`${rbe.toFixed(1)}`,pL-4,cy(rbe)+4);
+  const raDisp=calcRA();
+  ctx.fillText(`+${fF(raDisp)}`,pL-4,cy(raDisp)+4);
+  const rbe=shearAt(L-1e-9,raDisp,false);
+  if(Math.abs(rbe)>0.01)ctx.fillText(`${fF(rbe)}`,pL-4,cy(rbe)+4);
   ctx.fillStyle='#4a6a88';ctx.textAlign='center';
-  ctx.fillText('0',pL,H-6);ctx.fillText(`${L}m`,pL+pw,H-6);
+  ctx.fillText('0',pL,H-6);ctx.fillText(`${fL(L)} ${uL()}`,pL+pw,H-6);
   const usedX=new Set([0,L]);
   for(const ld of loads){
     const pts=ld.type==='point'?[ld.a]:ld.type==='dist'?[ld.c,ld.d]:[];
-    for(const x of pts){const xr=Math.round(x*100)/100;if(!usedX.has(xr)&&cx(x)-pL>18&&pL+pw-cx(x)>18){ctx.fillStyle=ld.color;ctx.fillText(`${(+x.toFixed(2))}m`,cx(x),H-6);usedX.add(xr);}}
+    for(const x of pts){const xr=Math.round(x*100)/100;if(!usedX.has(xr)&&cx(x)-pL>18&&pL+pw-cx(x)>18){ctx.fillStyle=ld.color;ctx.fillText(`${toDisp(x,'length').toFixed(2)}${uL()}`,cx(x),H-6);usedX.add(xr);}}
   }
 }
 
 function renderBMD(cv,RA){
   const ctx=cv.getContext('2d');
   const W=cv.width,H=cv.height;
-  const pL=72,pR=18,pT=18,pB=34,pw=W-pL-pR,ph=H-pT-pB;
+  const pL=Math.round(W*BX0/VW),pR=Math.round(W*(VW-BX1)/VW),pT=14,pB=28,pw=W-pL-pR,ph=H-pT-pB;
 
   // Dense x samples (critXSet already includes a and a+1e-9 for moments)
   const crit=critXSet().filter(x=>!isNaN(x));
@@ -863,20 +978,17 @@ function renderBMD(cv,RA){
 
   // Moment load jumps: draw colored vertical segments + dots
   for(const ld of loads.filter(ld=>ld.type==='moment')){
-    const mBefore=momentAt(ld.a,RA);       // just before (a < a is false)
-    const mAfter=momentAt(ld.a+1e-9,RA);  // just after (includes -ld.M jump for CCW+ve)
-    // Colored jump line
+    const mBefore=momentAt(ld.a,RA);
+    const mAfter=momentAt(ld.a+1e-9,RA);
     ctx.strokeStyle=ld.color;ctx.lineWidth=2;ctx.globalAlpha=0.85;
     ctx.beginPath();ctx.moveTo(cx(ld.a),cy(mBefore));ctx.lineTo(cx(ld.a),cy(mAfter));ctx.stroke();
     ctx.globalAlpha=1;
-    // Dots at before/after
     ctx.fillStyle=ld.color;
     ctx.beginPath();ctx.arc(cx(ld.a),cy(mBefore),3.5,0,2*Math.PI);ctx.fill();
     ctx.beginPath();ctx.arc(cx(ld.a),cy(mAfter), 3.5,0,2*Math.PI);ctx.fill();
-    // Label the jump magnitude
     const idx=loads.indexOf(ld)+1;
     ctx.font='9px "DM Mono",monospace';ctx.textAlign='left';
-    ctx.fillText(`M${idx}=${ld.M}kN·m`,cx(ld.a)+5,(cy(mBefore)+cy(mAfter))/2+4);
+    ctx.fillText(`M${idx}=${fM(ld.M)}${uM()}`,cx(ld.a)+5,(cy(mBefore)+cy(mAfter))/2+4);
   }
 
   // Colored dots at point/dist load positions
@@ -887,10 +999,10 @@ function renderBMD(cv,RA){
       const m=momentAt(x,RA);
       ctx.fillStyle=ld.color;
       ctx.beginPath();ctx.arc(cx(x),cy(m),3.5,0,2*Math.PI);ctx.fill();
-      const mr=Math.round(m*10)/10;
+      const mr=Math.round(toDisp(m,'moment')*10)/10;
       if(!labelledM.has(mr)&&Math.abs(m)>0.01){
         ctx.font='9px "DM Mono",monospace';ctx.textAlign='center';
-        ctx.fillText(`${m.toFixed(1)}`,cx(x),cy(m)-(m>=0?10:-4));
+        ctx.fillText(`${fM(m)}`,cx(x),cy(m)-(m>=0?10:-4));
         labelledM.add(mr);
       }
     }
@@ -900,16 +1012,16 @@ function renderBMD(cv,RA){
   ctx.strokeStyle='#334155';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(pL,pT);ctx.lineTo(pL,pT+ph);ctx.stroke();
   ctx.font='10px "DM Mono",monospace';
-  ctx.fillStyle='#a78bfa';ctx.textAlign='left';ctx.fillText('M (kN·m)',pL+4,pT+10);
+  ctx.fillStyle='#a78bfa';ctx.textAlign='left';ctx.fillText(`M (${uM()})`,pL+4,pT+10);
   ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.fillText('0',pL-4,baseY+4);
-  if(maxM>0.01)ctx.fillText(`${maxM.toFixed(1)}`,pL-4,cy(maxM)+4);
-  if(minM<-0.01)ctx.fillText(`${minM.toFixed(1)}`,pL-4,cy(minM)+4);
+  if(maxM>0.01)ctx.fillText(`${fM(maxM)}`,pL-4,cy(maxM)+4);
+  if(minM<-0.01)ctx.fillText(`${fM(minM)}`,pL-4,cy(minM)+4);
   ctx.fillStyle='#4a6a88';ctx.textAlign='center';
-  ctx.fillText('0',pL,H-6);ctx.fillText(`${L}m`,pL+pw,H-6);
+  ctx.fillText('0',pL,H-6);ctx.fillText(`${fL(L)} ${uL()}`,pL+pw,H-6);
   const usedX=new Set([0,L]);
   for(const ld of loads){
     const pts=ld.type==='point'?[ld.a]:ld.type==='dist'?[ld.c,ld.d]:ld.type==='moment'?[ld.a]:[];
-    for(const x of pts){const xr=Math.round(x*100)/100;if(!usedX.has(xr)&&cx(x)-pL>18&&pL+pw-cx(x)>18){ctx.fillStyle=ld.color;ctx.fillText(`${(+x.toFixed(2))}m`,cx(x),H-6);usedX.add(xr);}}
+    for(const x of pts){const xr=Math.round(x*100)/100;if(!usedX.has(xr)&&cx(x)-pL>18&&pL+pw-cx(x)>18){ctx.fillStyle=ld.color;ctx.fillText(`${toDisp(x,'length').toFixed(2)}${uL()}`,cx(x),H-6);usedX.add(xr);}}
   }
 }
 
@@ -938,10 +1050,15 @@ function updateAll(){
     const idx=loads.indexOf(sel)+1;
     const nm=document.getElementById('sel-name');
     nm.style.color=sel.color;
+    if(sel.type==='point')
+      nm.textContent=`P${idx} = ${fF(sel.P)} ${uF()}  @  ${fL(sel.a)} ${uL()}`;
+    else if(sel.type==='dist')
+      nm.textContent=`w${idx}: ${fW(sel.w1)}→${fW(sel.w2)} ${uW()}  |  ${fL(sel.c)}–${fL(sel.d)} ${uL()}`;
+    else if(sel.type==='moment')
+      nm.textContent=`M${idx} = ${fM(sel.M)} ${uM()}  @  ${fL(sel.a)} ${uL()}`;
 
     const fields=document.getElementById('sel-fields');
     if(sel.type==='point'){
-      nm.textContent=`P${idx} — point load`;
       fields.innerHTML=`
         <div class="ctrl" style="border-color:${sel.color}">
           <label style="color:${sel.color}">Force P${idx}</label>
@@ -955,7 +1072,6 @@ function updateAll(){
       chg('se-a',e=>{const v=parseFloat(e.target.value);const si=fromDisp(v,'length');if(!isNaN(si)&&si>=0&&si<=L){sel.a=si;updateAll();}});
     }
     else if(sel.type==='dist'){
-      nm.textContent=`w${idx} — dist load`;
       fields.innerHTML=`
         <div class="ctrl" style="border-color:${sel.color}">
           <label style="color:${sel.color}">Start w₁</label>
@@ -979,7 +1095,6 @@ function updateAll(){
       chg('se-d',e=>{const v=parseFloat(e.target.value);const si=fromDisp(v,'length');if(!isNaN(si)&&si>sel.c&&si<=L){sel.d=si;updateAll();}});
     }
     else if(sel.type==='moment'){
-      nm.textContent=`M${idx} — applied moment`;
       fields.innerHTML=`
         <div class="ctrl" style="border-color:${sel.color}">
           <label style="color:${sel.color}">Moment M${idx}</label>
@@ -1085,7 +1200,7 @@ function setBeamType(type){
 }
 document.addEventListener('keydown',e=>{
   if((e.key==='Delete'||e.key==='Backspace')&&selectedId!=null&&document.activeElement.tagName!=='INPUT')delSelected();
-  if(e.key==='Escape'){selectedId=null;updateAll();}
+  if(e.key==='Escape'){selectedId=null;closeEquations();updateAll();}
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -1172,6 +1287,206 @@ svg.addEventListener('pointerup',()=>{
     dragId=null;svg.style.cursor='';
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+//  PIECEWISE FUNCTION BUILDER
+// ══════════════════════════════════════════════════════════════
+function buildPiecewise() {
+  if (!loads.length) return null;
+
+  const RA    = calcRA();
+  const isCant= beamType === 'cantilever';
+  const MA    = isCant ? momentAtCantilever(0) : 0;
+
+  // Format a positive SI value → display units, up to 2dp, strip trailing zeros
+  function fmt(siVal, type) {
+    const d = toDisp(Math.abs(siVal), type);
+    return parseFloat(d.toFixed(2)).toString();
+  }
+  function fF(v){ return fmt(v,'force');  }
+  function fL(v){ return fmt(v,'length'); }
+  function fM(v){ return fmt(v,'moment'); }
+  function fW(v){ return fmt(v,'fdist');  }
+
+  // Push a signed term onto an array.  siVal drives the sign; absLatex is the magnitude.
+  function push(arr, siVal, type, absLatex) {
+    const d = toDisp(siVal, type);
+    if (Math.abs(d) < 0.005) return;
+    const first = arr.length === 0;
+    const sign  = d < 0 ? (first ? '-' : ' - ') : (first ? '' : ' + ');
+    arr.push(sign + absLatex);
+  }
+
+  // Critical breakpoints
+  const crit = new Set([0, L]);
+  for (const ld of loads) {
+    if (ld.type === 'point')   crit.add(ld.a);
+    else if (ld.type === 'dist') { crit.add(ld.c); crit.add(ld.d); }
+    else if (ld.type === 'moment') crit.add(ld.a);
+  }
+  const xs = [...crit].sort((a,b) => a-b);
+
+  const intervals = [];
+
+  for (let i = 0; i < xs.length - 1; i++) {
+    const x0 = xs[i], x1 = xs[i+1];
+    const vT = [], mT = [];
+
+    // ── Reaction at A ────────────────────────────────
+    push(vT,  RA, 'force',  fF(RA));
+    push(mT,  RA, 'force',  `${fF(RA)}x`);
+
+    // Cantilever: also show fixed-end moment in M
+    if (isCant && Math.abs(MA) > 0.005) {
+      push(mT, MA, 'moment', fM(MA));
+    }
+
+    // ── Load contributions ────────────────────────────
+    for (const ld of loads) {
+      const n = loads.indexOf(ld) + 1;
+
+      if (ld.type === 'point') {
+        if (ld.a <= x0) {
+          push(vT, -ld.P, 'force', fF(ld.P));
+          const a = fL(ld.a);
+          push(mT, -ld.P, 'force', `${fF(ld.P)}(x - ${a})`);
+        }
+      }
+
+      else if (ld.type === 'dist') {
+        const { w1, w2, c, d: dEnd } = ld;
+        const h = dEnd - c;
+
+        if (dEnd <= x0) {
+          // ── Past the load: split into rectangular + triangular resultants ──
+          const F1 = w1 * h,     xc1 = c + h/2;
+          const F2 = (w2-w1)*h/2, xc2 = c + 2*h/3;
+          if (Math.abs(F1) > 0.005) {
+            push(vT, -F1, 'force', fF(F1));
+            push(mT, -F1, 'force', `${fF(F1)}(x - ${fL(xc1)})`);
+          }
+          if (Math.abs(F2) > 0.005) {
+            push(vT, -F2, 'force', fF(F2));
+            push(mT, -F2, 'force', `${fF(F2)}(x - ${fL(xc2)})`);
+          }
+        }
+
+        else if (c <= x0) {
+          // ── Inside the load: polynomial in (x − c) ──
+          const cStr = fL(c);
+          const hStr = fL(h);
+
+          // V: -w₁(x-c)  −  (w₂-w₁)/(2h) · (x-c)²
+          if (Math.abs(w1) > 0.005)
+            push(vT, -w1, 'fdist', `${fW(w1)}(x - ${cStr})`);
+          if (Math.abs(w2-w1) > 0.005)
+            push(vT, -(w2-w1), 'fdist',
+              `\\dfrac{${fW(w2-w1)}}{2 \\cdot ${hStr}}(x - ${cStr})^{2}`);
+
+          // M: -w₁/2·(x-c)²  −  (w₂-w₁)/(6h)·(x-c)³
+          if (Math.abs(w1) > 0.005)
+            push(mT, -w1, 'fdist',
+              `\\dfrac{${fW(w1)}}{2}(x - ${cStr})^{2}`);
+          if (Math.abs(w2-w1) > 0.005)
+            push(mT, -(w2-w1), 'fdist',
+              `\\dfrac{${fW(w2-w1)}}{6 \\cdot ${hStr}}(x - ${cStr})^{3}`);
+        }
+      }
+
+      else if (ld.type === 'moment') {
+        if (ld.a <= x0) {
+          // V: no change.  M: constant jump −M₀
+          push(mT, -ld.M, 'moment', fM(ld.M));
+        }
+      }
+    }
+
+    intervals.push({
+      x0, x1,
+      vLatex: vT.join('') || '0',
+      mLatex: mT.join('') || '0'
+    });
+  }
+
+  return intervals;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EQUATION MODAL
+// ══════════════════════════════════════════════════════════════
+function showEquations(type) {
+  const overlay = document.getElementById('eq-overlay');
+  const body    = document.getElementById('eq-body');
+  const title   = document.getElementById('eq-title');
+
+  const isV    = type === 'V';
+  const accent = isV ? '#34d399' : '#a78bfa';
+  const fUnit  = uF(), lUnit = uL(), mUnit = uM();
+
+  title.innerHTML =
+    `<span style="color:${accent}">${isV ? 'V' : 'M'}(x)</span>` +
+    `<span> — ${isV ? 'Shear Force' : 'Bending Moment'} Piecewise Functions</span>`;
+
+  if (!loads.length) {
+    body.innerHTML = '<div class="eq-empty">Add loads to the beam to generate equations.</div>';
+    overlay.classList.add('open');
+    return;
+  }
+
+  const intervals = buildPiecewise();
+  if (!intervals) {
+    body.innerHTML = '<div class="eq-empty">Nothing to show.</div>';
+    overlay.classList.add('open');
+    return;
+  }
+
+  // Units note
+  const unitNote = isV
+    ? `x in ${lUnit} · V(x) in ${fUnit}`
+    : `x in ${lUnit} · M(x) in ${mUnit}`;
+
+  let html = '';
+  intervals.forEach(iv => {
+    const lo = toDisp(iv.x0, 'length'), hi = toDisp(iv.x1, 'length');
+    const loS = parseFloat(lo.toFixed(3)).toString();
+    const hiS = parseFloat(hi.toFixed(3)).toString();
+    const rangeLabel = `${loS} ≤ x ≤ ${hiS} ${lUnit}`;
+
+    const rawLatex = isV ? iv.vLatex : iv.mLatex;
+    const fullLatex = isV
+      ? `V(x) = ${rawLatex}`
+      : `M(x) = ${rawLatex}`;
+
+    let rendered = '';
+    try {
+      rendered = katex.renderToString(fullLatex, {
+        displayMode: false,
+        throwOnError: false,
+        output: 'html'
+      });
+    } catch(e) {
+      rendered = `<code>${fullLatex}</code>`;
+    }
+
+    html += `
+      <div class="eq-interval">
+        <div class="eq-range">${rangeLabel}</div>
+        <div class="eq-expr" style="border-left-color:${accent}">${rendered}</div>
+      </div>`;
+  });
+
+  html += `<div class="eq-units-note">${unitNote}</div>`;
+  body.innerHTML = html;
+  overlay.classList.add('open');
+}
+
+function closeEquations() {
+  document.getElementById('eq-overlay').classList.remove('open');
+}
+
+function eqOverlayClick(e) {
+  if (e.target === document.getElementById('eq-overlay')) closeEquations();
+}
 
 // ══════════════════════════════════════════════════════════════
 //  INIT
