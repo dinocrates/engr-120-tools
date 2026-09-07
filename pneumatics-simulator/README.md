@@ -28,8 +28,10 @@ shifts, pressure propagates, the cylinder extends. Release and it retracts.
 | Run-mode operator control panel — latch valve actuators, supply on/off (UI_DESIGN_BIBLE §2.3, §6) | ✅ |
 | Network-state solver — pressurised / exhausting / trapped regions (SDD §9–11) | ✅ |
 | White-halo tubing in five states (UI_DESIGN_BIBLE §10) | ✅ |
-| Components: air supply, exhaust, 3/2 NC valve, 5/2 valve, single- & double-acting cylinder | ✅ |
-| Flow control, check valve, regulator, gauge, limit valve, standalone signal glyphs | ⬜ need solver features (UI_DESIGN_BIBLE §15) |
+| Components: air supply, exhaust, 3/2 NC valve, 5/2 valve, 5/2 double-pilot, 3/2 roller limit valve, one-way flow control, check valve, single- & double-acting cylinder | ✅ |
+| Self-sequencing — limit valve tripped by cylinder position, pilot-shifted bistable valve, auto-cycle (UI_DESIGN_BIBLE §38) | ✅ |
+| Flow control (speed multiplier, §16) · check valve (one-way, load-holding, §17) | ✅ |
+| Regulator, gauge (need numeric pressure), standalone signal glyphs, solenoids | ⬜ later |
 | Camera pan / zoom, undo / redo, tube branch junctions | ⬜ not yet |
 | Full canvas accessibility (component/connection lists, live-region announcements) | ⬜ partial |
 
@@ -65,4 +67,6 @@ Data flow: `Store` (model) → `Engine` reads the circuit each tick and writes a
 
 **Adding a kit component** that needs no new physics (another valve, say): add an
 entry to `BEHAVIOURS` in `components/defs.ts` and to `LIBRARY_ORDER`. Geometry,
-ports, and valve truth tables come from `src/kit/manifest.json` automatically.
+ports, and valve truth tables come from `src/kit/manifest.json` automatically;
+components the vendored manifest doesn't ship are declared in
+`src/kit/manifest.ts` (`EXTRA_COMPONENTS`).

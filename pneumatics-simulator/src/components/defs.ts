@@ -45,10 +45,26 @@ export interface ComponentDef {
     restPosition: number;
   };
   actuation?: {
-    kind: "momentary" | "detent";
+    /**
+     * momentary — held (canvas) or latched (panel)
+     * detent    — latched only
+     * pilot     — pressure at a pilot port shifts the spool
+     * mechanical — tripped by a cylinder reaching a position (limit valve)
+     */
+    kind: "momentary" | "detent" | "pilot" | "mechanical";
     actuatedPosition: number;
+    restPosition?: number;
     control: string;
+    /** pilot: port whose pressure drives the spool to `actuatedPosition` */
+    pilotActuate?: string;
+    /** pilot: port whose pressure drives it back to `restPosition` */
+    pilotRest?: string;
+    /** pilot: hold the last position when neither pilot is pressurised */
+    bistable?: boolean;
   };
+  /** mechanically-triggered valve (limit valve) — instance params say which
+   *  cylinder and where. */
+  trigger?: true;
   cylinder?: {
     capPort: string;
     /** absent for single-acting (spring return) cylinders */
@@ -58,14 +74,21 @@ export interface ComponentDef {
   supply?: { port: string };
   exhaust?: { port: string };
   gauge?: { pivot: [number, number] };
+  /** one-way flow control — meters the exhausting direction (UI_DESIGN_BIBLE §16) */
+  flowControl?: { oneWay: boolean };
+  /** check valve — free flow inPort -> outPort, reverse blocked (SDD §17) */
+  checkValve?: { inPort: string; outPort: string };
 }
 
 interface Behaviour {
   actuation?: ComponentDef["actuation"];
+  trigger?: true;
   cylinder?: ComponentDef["cylinder"];
   supply?: ComponentDef["supply"];
   exhaust?: ComponentDef["exhaust"];
   gauge?: ComponentDef["gauge"];
+  flowControl?: ComponentDef["flowControl"];
+  checkValve?: ComponentDef["checkValve"];
   defaultParams?: Record<string, string | number | boolean>;
 }
 
@@ -81,6 +104,22 @@ const BEHAVIOURS: Record<string, Behaviour> = {
     actuation: { kind: "momentary", actuatedPosition: 1, control: "Pushbutton" },
     defaultParams: { return: "spring" },
   },
+  "valve-5-2-pp": {
+    actuation: {
+      kind: "pilot",
+      actuatedPosition: 1,
+      restPosition: 0,
+      control: "Double pilot",
+      pilotActuate: "14",
+      pilotRest: "12",
+      bistable: true,
+    },
+  },
+  "limit-valve": {
+    actuation: { kind: "mechanical", actuatedPosition: 1, restPosition: 0, control: "Roller" },
+    trigger: true,
+    defaultParams: { triggerAt: 95, triggerEdge: "extend" },
+  },
   "cylinder-double": {
     cylinder: { capPort: "cap", rodPort: "rod", springReturn: false },
     defaultParams: { stroke: 200, extendSpeed: 0.55, retractSpeed: 0.55 },
@@ -88,6 +127,13 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   "cylinder-single": {
     cylinder: { capPort: "cap", springReturn: true },
     defaultParams: { stroke: 160, extendSpeed: 0.6, retractSpeed: 0.9 },
+  },
+  "flow-control-one-way": {
+    flowControl: { oneWay: true },
+    defaultParams: { restriction: 60 },
+  },
+  "check-valve": {
+    checkValve: { inPort: "1", outPort: "2" },
   },
 };
 
@@ -97,6 +143,10 @@ export const LIBRARY_ORDER: string[] = [
   "exhaust",
   "valve-3-2-nc",
   "valve-5-2",
+  "valve-5-2-pp",
+  "limit-valve",
+  "flow-control-one-way",
+  "check-valve",
   "cylinder-single",
   "cylinder-double",
 ];
@@ -129,10 +179,13 @@ function buildDef(kit: KitComponent, b: Behaviour): ComponentDef {
     defaultParams: b.defaultParams ?? {},
     ...(valve ? { valve } : {}),
     ...(b.actuation ? { actuation: b.actuation } : {}),
+    ...(b.trigger ? { trigger: true as const } : {}),
     ...(b.cylinder ? { cylinder: b.cylinder } : {}),
     ...(b.supply ? { supply: b.supply } : {}),
     ...(b.exhaust ? { exhaust: b.exhaust } : {}),
     ...(b.gauge ? { gauge: b.gauge } : {}),
+    ...(b.flowControl ? { flowControl: b.flowControl } : {}),
+    ...(b.checkValve ? { checkValve: b.checkValve } : {}),
   };
 }
 

@@ -91,6 +91,37 @@ export function mountProperties({ host, store, engine, bus, renderer }: Args): v
       rows.push(numRow("Pressure", "pressure", comp.params.pressure ?? 600, "kPa", runMode, 10));
     }
 
+    if (def.flowControl) {
+      const r = Math.max(0, Math.min(100, Number(comp.params.restriction ?? 60)));
+      rows.push(
+        `<dt>Restriction</dt><dd><input class="p-range" type="range" min="0" max="100" step="5" data-key="restriction" value="${r}" ${runMode ? "disabled" : ""} /> <span class="muted">${r}%</span></dd>`,
+        `<dt>Direction</dt><dd class="ro">free 1&rarr;2, metered 2&rarr;1</dd>`,
+      );
+    }
+
+    if (def.checkValve) {
+      const openNow = rt.checkOpen.get(comp.id);
+      rows.push(
+        `<dt>Direction</dt><dd class="ro">${def.checkValve.inPort}&rarr;${def.checkValve.outPort} only</dd>`,
+        `<dt>State <span class="readonly-flag">live</span></dt><dd class="ro">${runMode ? (openNow ? "open" : "closed") : "—"}</dd>`,
+      );
+    }
+
+    if (def.trigger) {
+      const cylinders = store.circuit.components.filter((x) => getDef(x.type).cylinder);
+      const sel = String(comp.params.triggerCylinder ?? "");
+      const edge = String(comp.params.triggerEdge ?? "extend");
+      const opts = cylinders
+        .map((x) => `<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${escapeHtml(x.label ?? x.id)}</option>`)
+        .join("");
+      rows.push(
+        `<dt>Triggered by</dt><dd><select class="p-pick" data-key="triggerCylinder" ${runMode ? "disabled" : ""}><option value="">—</option>${opts}</select></dd>`,
+        `<dt>At position</dt><dd><input class="p-num" type="number" min="1" max="100" step="1" data-key="triggerAt" value="${Number(comp.params.triggerAt ?? 95)}" ${runMode ? "disabled" : ""} /> <span class="muted">%</span></dd>`,
+        `<dt>When</dt><dd><select class="p-pick" data-key="triggerEdge" ${runMode ? "disabled" : ""}><option value="extend" ${edge === "extend" ? "selected" : ""}>extending past</option><option value="retract" ${edge === "retract" ? "selected" : ""}>retracting past</option></select></dd>`,
+        `<dt>Status <span class="readonly-flag">live</span></dt><dd class="ro">${runMode ? (rt.limitTripped.get(comp.id) ? "tripped" : "clear") : "—"}</dd>`,
+      );
+    }
+
     const compareHtml = (["symbol", "component"] as const)
       .map((v) => {
         const active = renderer.currentView === v ? " active" : "";
@@ -119,12 +150,27 @@ export function mountProperties({ host, store, engine, bus, renderer }: Args): v
         else render();
       });
     });
+    host.querySelectorAll<HTMLSelectElement>(".p-pick").forEach((sel) => {
+      sel.addEventListener("change", () => store.setParam(comp.id, sel.dataset.key!, sel.value));
+    });
+    host.querySelectorAll<HTMLInputElement>(".p-range").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        store.setParam(comp.id, inp.dataset.key!, Number(inp.value));
+        render();
+      });
+    });
   };
 
   bus.on("selection:changed", () => {
     const id = store.selection;
     const comp = id ? store.getComponent(id) : undefined;
-    liveSelected = Boolean(comp && (getDef(comp.type).cylinder || getDef(comp.type).valve));
+    liveSelected = Boolean(
+      comp &&
+        (getDef(comp.type).cylinder ||
+          getDef(comp.type).valve ||
+          getDef(comp.type).trigger ||
+          getDef(comp.type).checkValve),
+    );
     render();
   });
   bus.on("circuit:changed", render);
@@ -162,6 +208,13 @@ function howto(def: ReturnType<typeof getDef>): string {
   if (def.valve) {
     return "The artwork shows both spool positions; the blue bar marks the active one. Pushing the button shifts the spool while held; the spring returns it on release.";
   }
+  if (def.trigger) {
+    return "A roller-actuated 3/2 valve. It stays closed until the linked cylinder reaches the set position, then opens supply to its output — use that to pilot another valve.";
+  }
+  if (def.flowControl) {
+    return "Restricts airflow in one direction (a needle valve) while a check valve lets the other direction flow freely — meter-in or meter-out speed control depending on which way you wire it.";
+  }
+  if (def.checkValve) return "Lets air flow one way only. Reverse flow is blocked, so it can hold pressure in a chamber after the supply drops.";
   if (def.cylinder && def.cylinder.springReturn) {
     return "Air on the cap side extends the rod; the internal spring retracts it when cap pressure is removed.";
   }

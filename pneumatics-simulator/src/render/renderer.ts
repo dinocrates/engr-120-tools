@@ -21,8 +21,8 @@ import type { KitView } from "@/kit/manifest.ts";
 import type { PressureState } from "@/solver/solver.ts";
 import { group, parseSvg, svg } from "./svg.ts";
 
-const VIEW_W = 760;
-const VIEW_H = 600;
+const VIEW_W = 880;
+const VIEW_H = 640;
 const GRID = 8;
 const PORT_HIT = 14;
 
@@ -158,7 +158,8 @@ export class Renderer {
     }
     g.append(ports);
 
-    if (this.store.mode === "run" && def.actuation) {
+    const manual = def.actuation?.kind === "momentary" || def.actuation?.kind === "detent";
+    if (this.store.mode === "run" && manual) {
       const [, , w, h] = def.viewBox;
       g.append(
         svg("rect", {
@@ -249,7 +250,10 @@ export class Renderer {
 
       // control-panel state -> component styling
       g.classList.toggle("input-off", live && !!def.supply && !(rt.supplyOn.get(inst.id) ?? true));
-      g.classList.toggle("latched-on", live && !!def.actuation && !!rt.latched.get(inst.id));
+      g.classList.toggle(
+        "latched-on",
+        live && (!!rt.latched.get(inst.id) || !!rt.limitTripped.get(inst.id)),
+      );
 
       // continuous state -> piston / needle
       const artSvg = g.querySelector<SVGElement>(".artwork > svg");

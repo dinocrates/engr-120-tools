@@ -83,5 +83,32 @@ if (released > 15) await fail(`panel unlatch did not retract the cylinder (pos $
 
 console.log(`hold ${extended}% -> view ${afterToggle}% -> release ${retracted}%  ✓`);
 console.log(`latch ${latched}% -> air-off ${airOff}% -> unlatch ${released}%  ✓`);
+
+// -- self-sequencing: auto-cycle demo -----------------------------------
+await page.click("#reset"); // back to edit mode so the demo picker is enabled
+await page.waitForTimeout(150);
+await page.selectOption('[data-act="demo"]', "autocycle");
+await page.waitForTimeout(300);
+await page.click("#run");
+await page.waitForTimeout(200);
+let pbBox = null;
+for (const el of await page.$$("[data-actuate]")) {
+  if ((await el.getAttribute("data-actuate")) === "PB1") pbBox = await el.boundingBox();
+}
+if (!pbBox) await fail("auto-cycle demo has no PB1 actuator");
+await page.mouse.move(pbBox.x + pbBox.width / 2, pbBox.y + pbBox.height / 2);
+await page.mouse.down();
+await page.waitForTimeout(200);
+await page.mouse.up(); // momentary tap — bistable valve should latch
+await page.waitForTimeout(1500);
+const cyclePeak = await readPos();
+await page.waitForTimeout(3000);
+const cycleEnd = await readPos();
+
+if (errors.length) await fail("page errors: " + errors.join("; "));
+if (cyclePeak < 70) await fail(`auto-cycle did not extend after PB1 tap (peak ${cyclePeak}%)`);
+if (cycleEnd > 12) await fail(`auto-cycle did not auto-retract at the limit valve (end ${cycleEnd}%)`);
+
+console.log(`auto-cycle: tap PB1 -> ${cyclePeak}% -> limit -> ${cycleEnd}%  ✓`);
 console.log("SMOKE OK");
 await browser.close();

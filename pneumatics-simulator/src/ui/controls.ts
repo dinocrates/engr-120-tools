@@ -2,7 +2,7 @@ import { getDef } from "@/components/defs.ts";
 import type { EventBus } from "@/events/bus.ts";
 import type { Store } from "@/model/store.ts";
 import type { Engine } from "@/sim/engine.ts";
-import { demoCircuit } from "./demo.ts";
+import { DEMOS } from "./demo.ts";
 import { iconSvg } from "./icons.ts";
 
 interface Args {
@@ -22,7 +22,12 @@ export function mountControls({ host, actions, store, engine, bus }: Args): void
     <button class="pneu-button" data-act="new">${iconSvg("new")}New</button>
     <button class="pneu-button" data-act="open">${iconSvg("open")}Open</button>
     <button class="pneu-button" data-act="save">${iconSvg("save")}Save</button>
-    <button class="pneu-button" data-act="demo">${iconSvg("book")}Demo</button>`;
+    <label class="demo-pick">${iconSvg("book")}
+      <select data-act="demo" aria-label="Load a demo circuit">
+        <option value="">Demo…</option>
+        ${DEMOS.map((d) => `<option value="${d.id}">${d.name}</option>`).join("")}
+      </select>
+    </label>`;
 
   host.innerHTML = `
     <button class="pneu-button run" id="run">${iconSvg("run")}Run</button>
@@ -100,7 +105,12 @@ export function mountControls({ host, actions, store, engine, bus }: Args): void
     engine.reset();
     bus.emit("status:changed");
   });
-  actions.querySelector('[data-act="demo"]')!.addEventListener("click", () => loadCircuit(JSON.stringify(demoCircuit())));
+  const demoSel = actions.querySelector<HTMLSelectElement>('[data-act="demo"]')!;
+  demoSel.addEventListener("change", () => {
+    const demo = DEMOS.find((d) => d.id === demoSel.value);
+    if (demo) loadCircuit(JSON.stringify(demo.circuit()));
+    demoSel.value = "";
+  });
   actions.querySelector('[data-act="open"]')!.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files?.[0];

@@ -1,29 +1,112 @@
-import type { Circuit } from "@/model/types.ts";
+import type { Circuit, ComponentInstance, Connection } from "@/model/types.ts";
+
+const comp = (
+  id: string,
+  type: string,
+  x: number,
+  y: number,
+  params: ComponentInstance["params"] = {},
+): ComponentInstance => ({ id, type, position: { x, y }, rotation: 0, label: id, params });
+
+const wire = (id: string, fc: string, fp: string, tc: string, tp: string): Connection => ({
+  id,
+  from: { component: fc, port: fp },
+  to: { component: tc, port: tp },
+});
 
 /**
- * The SDD §48 MVP circuit, matching the UI kit's reference example:
- * air supply -> 5/2 spring-return valve -> double-acting cylinder, with both
- * valve exhaust ports vented through exhaust components.
- *
- * Valve truth table (from manifest): rest [1-2, 4-5], actuated [1-4, 2-3].
- * Cap connects to port 4, rod to port 2 -> pressing extends, releasing retracts.
+ * Basic MVP circuit (matches the UI kit reference): air supply → manual 5/2
+ * spring-return valve → double-acting cylinder, valve exhausts vented.
  */
-export function demoCircuit(): Circuit {
+function basicCircuit(): Circuit {
   return {
     version: 1,
     components: [
-      { id: "SUP1", type: "air-supply", position: { x: 32, y: 372 }, rotation: 0, label: "SUP1", params: { pressure: 600 } },
-      { id: "V1", type: "valve-5-2", position: { x: 232, y: 296 }, rotation: 0, label: "V1", params: { return: "spring" } },
-      { id: "C1", type: "cylinder-double", position: { x: 384, y: 48 }, rotation: 0, label: "C1", params: { stroke: 200, extendSpeed: 0.5, retractSpeed: 0.5 } },
-      { id: "EX1", type: "exhaust", position: { x: 208, y: 456 }, rotation: 0, label: "EX1", params: {} },
-      { id: "EX2", type: "exhaust", position: { x: 320, y: 456 }, rotation: 0, label: "EX2", params: {} },
+      comp("SUP1", "air-supply", 92, 392, { pressure: 600 }),
+      comp("V1", "valve-5-2", 292, 316, { return: "spring" }),
+      comp("C1", "cylinder-double", 444, 68, { stroke: 200, extendSpeed: 0.5, retractSpeed: 0.5 }),
+      comp("EX1", "exhaust", 268, 476),
+      comp("EX2", "exhaust", 380, 476),
     ],
     connections: [
-      { id: "w1", from: { component: "SUP1", port: "1" }, to: { component: "V1", port: "1" } },
-      { id: "w2", from: { component: "V1", port: "4" }, to: { component: "C1", port: "cap" } },
-      { id: "w3", from: { component: "V1", port: "2" }, to: { component: "C1", port: "rod" } },
-      { id: "w4", from: { component: "V1", port: "5" }, to: { component: "EX1", port: "1" } },
-      { id: "w5", from: { component: "V1", port: "3" }, to: { component: "EX2", port: "1" } },
+      wire("w1", "SUP1", "1", "V1", "1"),
+      wire("w2", "V1", "4", "C1", "cap"),
+      wire("w3", "V1", "2", "C1", "rod"),
+      wire("w4", "V1", "5", "EX1", "1"),
+      wire("w5", "V1", "3", "EX2", "1"),
     ],
   };
+}
+
+/**
+ * Self-sequencing circuit (UI_DESIGN_BIBLE §38 example). Press PB1 to pilot the
+ * double-pilot 5/2 to extend; the limit valve LS1 trips near full extension and
+ * pilots it back to retract. Bistable, so it completes the cycle on one press.
+ */
+function autoCycleCircuit(): Circuit {
+  return {
+    version: 1,
+    components: [
+      comp("C1", "cylinder-double", 300, 24, { stroke: 200, extendSpeed: 0.45, retractSpeed: 0.45 }),
+      comp("V1", "valve-5-2-pp", 336, 316),
+      comp("PB1", "valve-3-2-nc", 40, 316, { return: "spring" }),
+      comp("LS1", "limit-valve", 632, 316, { triggerCylinder: "C1", triggerAt: 92, triggerEdge: "extend" }),
+      comp("SUP1", "air-supply", 40, 492, { pressure: 600 }),
+      comp("EXV", "exhaust", 372, 512),
+      comp("EXS", "exhaust", 168, 512),
+    ],
+    connections: [
+      wire("m1", "SUP1", "1", "V1", "1"),
+      wire("m2", "SUP1", "1", "PB1", "1"),
+      wire("m3", "SUP1", "1", "LS1", "1"),
+      wire("m4", "V1", "4", "C1", "cap"),
+      wire("m5", "V1", "2", "C1", "rod"),
+      wire("m6", "PB1", "2", "V1", "14"),
+      wire("m7", "LS1", "2", "V1", "12"),
+      wire("m8", "V1", "5", "EXV", "1"),
+      wire("m9", "V1", "3", "EXV", "1"),
+      wire("m10", "PB1", "3", "EXS", "1"),
+      wire("m11", "LS1", "3", "EXS", "1"),
+    ],
+  };
+}
+
+export interface Demo {
+  id: string;
+  name: string;
+  circuit: () => Circuit;
+}
+
+/** Meter-out speed control: a one-way flow control on the cap line slows extend. */
+function speedControlCircuit(): Circuit {
+  return {
+    version: 1,
+    components: [
+      comp("SUP1", "air-supply", 92, 452, { pressure: 600 }),
+      comp("V1", "valve-5-2", 292, 376, { return: "spring" }),
+      comp("FC1", "flow-control-one-way", 300, 216, { restriction: 75 }),
+      comp("C1", "cylinder-double", 452, 40, { stroke: 200, extendSpeed: 0.7, retractSpeed: 0.7 }),
+      comp("EX1", "exhaust", 236, 536),
+      comp("EX2", "exhaust", 360, 536),
+    ],
+    connections: [
+      wire("s1", "SUP1", "1", "V1", "1"),
+      wire("s2", "V1", "4", "FC1", "1"),
+      wire("s3", "FC1", "2", "C1", "cap"),
+      wire("s4", "V1", "2", "C1", "rod"),
+      wire("s5", "V1", "5", "EX1", "1"),
+      wire("s6", "V1", "3", "EX2", "1"),
+    ],
+  };
+}
+
+export const DEMOS: Demo[] = [
+  { id: "basic", name: "Basic — manual 5/2 valve", circuit: basicCircuit },
+  { id: "speed", name: "Speed control — flow control valve", circuit: speedControlCircuit },
+  { id: "autocycle", name: "Auto-cycle — pushbutton + limit valve", circuit: autoCycleCircuit },
+];
+
+/** Loaded on startup. */
+export function demoCircuit(): Circuit {
+  return basicCircuit();
 }

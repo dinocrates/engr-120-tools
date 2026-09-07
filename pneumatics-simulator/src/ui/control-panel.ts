@@ -33,22 +33,37 @@ export function mountControlPanel({ host, store, engine, bus }: Args): void {
       return;
     }
 
+    const isManual = (c: { type: string }) => {
+      const k = getDef(c.type).actuation?.kind;
+      return k === "momentary" || k === "detent";
+    };
     const supplies = store.circuit.components.filter((c) => getDef(c.type).supply);
-    const actuators = store.circuit.components.filter((c) => getDef(c.type).actuation);
+    const actuators = store.circuit.components.filter(isManual);
+    const sensors = store.circuit.components.filter((c) => getDef(c.type).trigger);
     controls = [
       ...supplies.map((c) => ({ id: c.id, kind: "supply" as const })),
       ...actuators.map((c) => ({ id: c.id, kind: "actuator" as const })),
     ];
 
-    if (controls.length === 0) {
+    if (controls.length === 0 && sensors.length === 0) {
       host.innerHTML = `<p class="eyebrow">Controls</p><p class="muted">This circuit has no operable controls.</p>`;
       return;
     }
 
+    const sensorBlock = sensors.length
+      ? `<p class="cp-subhead">Sensors</p><div class="cp-list">${sensors
+          .map((c) => {
+            const def = getDef(c.type);
+            return `<div class="cp-row"><div class="cp-meta"><span class="cp-title">${escapeHtml(c.label ?? def.name)}</span><span class="cp-sub">triggered by ${escapeHtml(String(c.params.triggerCylinder || "—"))}</span></div><span class="cp-sensor" data-sensor="${c.id}">CLEAR</span></div>`;
+          })
+          .join("")}</div>`
+      : "";
+
     host.innerHTML = `
       <p class="eyebrow">Controls</p>
       <p class="cp-hint">Click to hold a control on. For a momentary press, press &amp; hold the component on the canvas.</p>
-      <div class="cp-list">${supplies.map(supplyRow).join("") + actuators.map(actuatorRow).join("")}</div>`;
+      <div class="cp-list">${supplies.map(supplyRow).join("") + actuators.map(actuatorRow).join("")}</div>
+      ${sensorBlock}`;
 
     host.querySelectorAll<HTMLButtonElement>("[data-cp]").forEach((btn) => {
       const { cp: id, kind } = btn.dataset;
@@ -64,6 +79,11 @@ export function mountControlPanel({ host, store, engine, bus }: Args): void {
   const refresh = (): void => {
     if (host.hidden) return;
     const rt = engine.runtime;
+    host.querySelectorAll<HTMLElement>("[data-sensor]").forEach((el) => {
+      const on = rt.limitTripped.get(el.dataset.sensor!) ?? false;
+      el.textContent = on ? "TRIPPED" : "CLEAR";
+      el.classList.toggle("on", on);
+    });
     for (const { id, kind } of controls) {
       const btn = host.querySelector<HTMLButtonElement>(`[data-cp="${id}"]`);
       if (!btn) continue;

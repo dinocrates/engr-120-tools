@@ -59,8 +59,20 @@ header#brand img.header-lockup { cursor: default; }
   cursor: pointer;
 }
 
-.toolbar-actions { display: flex; gap: 6px; margin-left: auto; }
+.toolbar-actions { display: flex; gap: 6px; margin-left: auto; align-items: center; }
 .toolbar-actions .pneu-button { min-height: 34px; font-size: 13px; padding: 0 10px; }
+.demo-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 8px;
+  border: 2px solid var(--navy-900);
+  background: var(--panel);
+  box-shadow: var(--pixel-bevel);
+}
+.demo-pick svg { width: 16px; height: 16px; }
+.demo-pick select { border: 0; background: transparent; min-height: 30px; }
 
 /* ------------------------------------------------------------------ body */
 
@@ -208,6 +220,16 @@ header#brand img.header-lockup { cursor: default; }
 }
 .run-controls .eyebrow { background: transparent; border-top: 0; box-shadow: none; padding: 0 0 8px; color: var(--cyan-300); }
 .cp-hint { margin: 0 0 10px; font-size: 11px; color: #9fc4e0; line-height: 1.4; }
+.cp-subhead { margin: 12px 0 6px; font: 700 11px var(--font-display); letter-spacing: 0.06em; color: var(--cyan-300); }
+.cp-sensor {
+  flex: none;
+  padding: 4px 8px;
+  font: 700 11px var(--font-display);
+  border: 2px solid #0b2855;
+  background: #cdd9ea;
+  color: #10233f;
+}
+.cp-sensor.on { background: var(--success); color: #fff; }
 .cp-list { display: flex; flex-direction: column; gap: 8px; }
 .cp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .cp-meta { display: flex; flex-direction: column; min-width: 0; }
@@ -260,6 +282,7 @@ header#brand img.header-lockup { cursor: default; }
 .props dd.ro { font-family: var(--font-data); }
 .props input, .props select { min-height: 30px; padding: 2px 6px; max-width: 100%; }
 .props input[type="number"] { width: 84px; }
+.props input[type="range"] { width: 120px; accent-color: var(--cobalt-600); vertical-align: middle; }
 .readonly-flag { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
 .callout {

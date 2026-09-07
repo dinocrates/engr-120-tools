@@ -27,12 +27,18 @@ export interface RuntimeState {
   inputs: Map<string, boolean>;
   /** componentId -> control-panel latch (click on / click off) */
   latched: Map<string, boolean>;
+  /** limit-valve componentId -> tripped by its linked cylinder (SDD §11 phase 7) */
+  limitTripped: Map<string, boolean>;
   /** supply componentId -> air turned on (default true) */
   supplyOn: Map<string, boolean>;
   /** "component:port" -> pressure state */
   portStates: Map<string, PressureState>;
+  /** "component:port" -> region id (for path queries like flow control) */
+  regionOf: Map<string, number>;
   /** connectionId -> pressure state */
   connStates: Map<string, PressureState>;
+  /** check-valve componentId -> currently open */
+  checkOpen: Map<string, boolean>;
   warnings: string[];
 }
 
@@ -44,14 +50,18 @@ function freshRuntime(circuit: Circuit): RuntimeState {
     cylinderDir: new Map(),
     inputs: new Map(),
     latched: new Map(),
+    limitTripped: new Map(),
     supplyOn: new Map(),
     portStates: new Map(),
+    regionOf: new Map(),
     connStates: new Map(),
+    checkOpen: new Map(),
     warnings: [],
   };
   for (const c of circuit.components) {
     const def = getDef(c.type);
     if (def.valve) rt.valvePositions.set(c.id, def.valve.restPosition);
+    if (def.trigger) rt.limitTripped.set(c.id, false);
     if (def.supply) rt.supplyOn.set(c.id, true);
     if (def.cylinder) {
       rt.cylinderPos.set(c.id, 0);
@@ -127,6 +137,9 @@ export class Engine {
     const scaled = dt * this.speed;
     this.solveLogical();
     this.advanceMotion(scaled);
+    // Phase 7 — sensors read the new cylinder positions; if a limit valve
+    // trips, re-settle the logic so the resulting valve shift shows this tick.
+    if (this.updateSensors()) this.solveLogical();
     this.runtime.time += scaled;
     this.bus.emit("sim:tick");
   }
@@ -139,14 +152,36 @@ export class Engine {
     for (let i = 0; i < MAX_LOGICAL_ITERATIONS; i++) {
       let changed = false;
 
-      // Phase 2 — determine valve positions from inputs. A valve is actuated
-      // while its button is held on the canvas OR latched in the control panel.
+      // Phase 2 — determine each valve's spool position from its actuation.
       for (const c of circuit.components) {
         const def = getDef(c.type);
         if (!def.valve || !def.actuation) continue;
-        const actuated = (rt.inputs.get(c.id) ?? false) || (rt.latched.get(c.id) ?? false);
-        const next = actuated ? def.actuation.actuatedPosition : def.valve.restPosition;
-        if (next !== rt.valvePositions.get(c.id)) {
+        const cur = rt.valvePositions.get(c.id) ?? def.valve.restPosition;
+        const a = def.actuation;
+        const restPos = a.restPosition ?? def.valve.restPosition;
+        let next = cur;
+
+        switch (a.kind) {
+          case "momentary":
+          case "detent":
+            next = (rt.inputs.get(c.id) ?? false) || (rt.latched.get(c.id) ?? false)
+              ? a.actuatedPosition
+              : restPos;
+            break;
+          case "mechanical":
+            next = (rt.limitTripped.get(c.id) ?? false) ? a.actuatedPosition : restPos;
+            break;
+          case "pilot": {
+            const pa = a.pilotActuate ? rt.portStates.get(nodeKey(c.id, a.pilotActuate)) === "PRESSURIZED" : false;
+            const pr = a.pilotRest ? rt.portStates.get(nodeKey(c.id, a.pilotRest)) === "PRESSURIZED" : false;
+            if (pa && !pr) next = a.actuatedPosition;
+            else if (pr && !pa) next = restPos;
+            else if (!a.bistable) next = restPos; // spring-centred single pilot
+            break;
+          }
+        }
+
+        if (next !== cur) {
           rt.valvePositions.set(c.id, next);
           changed = true;
         }
@@ -159,6 +194,8 @@ export class Engine {
         supplyOn: rt.supplyOn,
       });
       rt.portStates = result.portStates;
+      rt.regionOf = result.regionOf;
+      rt.checkOpen = result.checkOpen;
       rt.warnings = result.warnings;
 
       // connection states for rendering
@@ -171,6 +208,57 @@ export class Engine {
       // Phase 7 — sensors would update here and could feed back; none in MVP.
       if (!changed) break;
     }
+  }
+
+  /**
+   * Phase 7 — mechanical sensors. A limit valve trips when its linked cylinder
+   * reaches the configured position. Returns whether any trip state changed.
+   */
+  private updateSensors(): boolean {
+    const rt = this.runtime;
+    let changed = false;
+    for (const c of this.getCircuit().components) {
+      if (!getDef(c.type).trigger) continue;
+      const cylId = String(c.params.triggerCylinder ?? "");
+      const pos = rt.cylinderPos.get(cylId);
+      const at = Number(c.params.triggerAt ?? 95) / 100;
+      const edge = String(c.params.triggerEdge ?? "extend");
+      const tripped = pos == null ? false : edge === "retract" ? pos <= at : pos >= at;
+      if (tripped !== (rt.limitTripped.get(c.id) ?? false)) {
+        rt.limitTripped.set(c.id, tripped);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * Speed multiplier from any one-way flow control sharing a region with a
+   * cylinder chamber (UI_DESIGN_BIBLE §16 — a restriction multiplier, no real
+   * volumetric flow). Simplification: restricts motion in both directions.
+   */
+  private flowFactor(cylId: string, capPort: string, rodPort?: string): number {
+    const rt = this.runtime;
+    const regions = new Set<number>();
+    for (const port of [capPort, rodPort]) {
+      if (!port) continue;
+      const r = rt.regionOf.get(nodeKey(cylId, port));
+      if (r !== undefined) regions.add(r);
+    }
+    if (regions.size === 0) return 1;
+
+    let factor = 1;
+    for (const c of this.getCircuit().components) {
+      if (!getDef(c.type).flowControl) continue;
+      const inChamber =
+        regions.has(rt.regionOf.get(nodeKey(c.id, "1")) ?? -1) ||
+        regions.has(rt.regionOf.get(nodeKey(c.id, "2")) ?? -1);
+      if (inChamber) {
+        const restriction = Math.max(0, Math.min(100, Number(c.params.restriction ?? 60)));
+        factor = Math.min(factor, Math.max(0.03, 1 - restriction / 100));
+      }
+    }
+    return factor;
   }
 
   /** Phases 5 & 6 — actuator intent and motion integration. */
@@ -200,8 +288,9 @@ export class Engine {
       }
 
       const pos = rt.cylinderPos.get(c.id) ?? 0;
-      const extendSpeed = Number(c.params.extendSpeed ?? def.defaultParams?.extendSpeed ?? 0.6);
-      const retractSpeed = Number(c.params.retractSpeed ?? def.defaultParams?.retractSpeed ?? 0.6);
+      const flow = this.flowFactor(c.id, def.cylinder.capPort, def.cylinder.rodPort);
+      const extendSpeed = Number(c.params.extendSpeed ?? def.defaultParams?.extendSpeed ?? 0.6) * flow;
+      const retractSpeed = Number(c.params.retractSpeed ?? def.defaultParams?.retractSpeed ?? 0.6) * flow;
 
       let next = pos;
       if (dir === "extending") next = Math.min(1, pos + extendSpeed * dt);
