@@ -157,6 +157,8 @@ header#brand img.header-lockup { cursor: default; }
 }
 .component.selected .sel-box { visibility: visible; }
 .component.ghost { opacity: 0.5; pointer-events: none; }
+.component.input-off .artwork { opacity: 0.4; }
+.component.latched-on .sel-box { visibility: visible; stroke: var(--success); stroke-dasharray: 0; }
 
 /* tubing (UI_DESIGN_BIBLE §10) — white halo under a colored line */
 .wire { pointer-events: stroke; }
@@ -194,6 +196,49 @@ header#brand img.header-lockup { cursor: default; }
 .part span { font-size: 12.5px; line-height: 1.25; }
 .instruction { margin-top: 14px; font-size: 12px; color: var(--muted); }
 .empty-result { margin-top: 12px; font-size: 12px; color: var(--muted); }
+
+/* ---------------------------------------------------- run control panel */
+
+.run-controls {
+  margin: -14px -14px 14px;
+  padding: 12px 14px;
+  background: var(--navy-900);
+  color: #dceefc;
+  border-bottom: 3px solid var(--cyan-300);
+}
+.run-controls .eyebrow { background: transparent; border-top: 0; box-shadow: none; padding: 0 0 8px; color: var(--cyan-300); }
+.cp-hint { margin: 0 0 10px; font-size: 11px; color: #9fc4e0; line-height: 1.4; }
+.cp-list { display: flex; flex-direction: column; gap: 8px; }
+.cp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cp-meta { display: flex; flex-direction: column; min-width: 0; }
+.cp-title { font-weight: 700; font-size: 13px; }
+.cp-sub { font-size: 10.5px; color: #9fc4e0; }
+
+.cp-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 2px solid #0b2855;
+  font: 700 12px var(--font-display);
+  letter-spacing: 0.03em;
+  color: #10233f;
+  background: #cdd9ea;
+  box-shadow: inset 2px 2px #fff, inset -2px -2px #93a7c4;
+  cursor: pointer;
+}
+.cp-toggle .cp-dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #0b2855;
+  background: #8695a9;
+}
+.cp-toggle.on { background: var(--success); color: #fff; box-shadow: inset 2px 2px #7fe0a6, inset -2px -2px #0d5a30; }
+.cp-toggle.on .cp-dot { background: #d6ffe6; }
+.cp-toggle.held { background: var(--cobalt-600); color: #fff; box-shadow: inset 2px 2px #86dcff, inset -2px -2px #124798; }
+.cp-toggle:focus-visible { outline: 3px solid var(--cyan-300); outline-offset: 2px; }
 
 /* ------------------------------------------------------------- inspector */
 

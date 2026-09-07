@@ -23,8 +23,12 @@ export interface RuntimeState {
   /** componentId -> normalized rod position, 0 = retracted, 1 = extended */
   cylinderPos: Map<string, number>;
   cylinderDir: Map<string, CylinderDirection>;
-  /** componentId -> manual actuator held down */
+  /** componentId -> manual actuator momentarily held (press & hold on canvas) */
   inputs: Map<string, boolean>;
+  /** componentId -> control-panel latch (click on / click off) */
+  latched: Map<string, boolean>;
+  /** supply componentId -> air turned on (default true) */
+  supplyOn: Map<string, boolean>;
   /** "component:port" -> pressure state */
   portStates: Map<string, PressureState>;
   /** connectionId -> pressure state */
@@ -39,6 +43,8 @@ function freshRuntime(circuit: Circuit): RuntimeState {
     cylinderPos: new Map(),
     cylinderDir: new Map(),
     inputs: new Map(),
+    latched: new Map(),
+    supplyOn: new Map(),
     portStates: new Map(),
     connStates: new Map(),
     warnings: [],
@@ -46,6 +52,7 @@ function freshRuntime(circuit: Circuit): RuntimeState {
   for (const c of circuit.components) {
     const def = getDef(c.type);
     if (def.valve) rt.valvePositions.set(c.id, def.valve.restPosition);
+    if (def.supply) rt.supplyOn.set(c.id, true);
     if (def.cylinder) {
       rt.cylinderPos.set(c.id, 0);
       rt.cylinderDir.set(c.id, "holding");
@@ -84,10 +91,33 @@ export class Engine {
     this.bus.emit("sim:paused");
   }
 
+  /** Momentary press & hold (canvas). */
   setInput(componentId: string, held: boolean): void {
     if (this.runtime.inputs.get(componentId) === held) return;
     this.runtime.inputs.set(componentId, held);
-    // Re-settle logic immediately so the spool visibly shifts on press.
+    this.settle();
+  }
+
+  /** Latched control-panel toggle. */
+  setLatch(componentId: string, on: boolean): void {
+    if ((this.runtime.latched.get(componentId) ?? false) === on) return;
+    this.runtime.latched.set(componentId, on);
+    this.settle();
+  }
+
+  toggleLatch(componentId: string): void {
+    this.setLatch(componentId, !(this.runtime.latched.get(componentId) ?? false));
+  }
+
+  /** Turn a supply's air on or off from the control panel. */
+  setSupply(componentId: string, on: boolean): void {
+    if ((this.runtime.supplyOn.get(componentId) ?? true) === on) return;
+    this.runtime.supplyOn.set(componentId, on);
+    this.settle();
+  }
+
+  /** Re-settle logic immediately so the circuit responds to a control change. */
+  private settle(): void {
     this.solveLogical();
     this.bus.emit("valve:changed");
   }
@@ -109,20 +139,13 @@ export class Engine {
     for (let i = 0; i < MAX_LOGICAL_ITERATIONS; i++) {
       let changed = false;
 
-      // Phase 2 — determine valve positions from inputs.
+      // Phase 2 — determine valve positions from inputs. A valve is actuated
+      // while its button is held on the canvas OR latched in the control panel.
       for (const c of circuit.components) {
         const def = getDef(c.type);
         if (!def.valve || !def.actuation) continue;
-        const held = rt.inputs.get(c.id) ?? false;
-        let next = rt.valvePositions.get(c.id) ?? def.valve.restPosition;
-        switch (def.actuation.kind) {
-          case "momentary":
-            next = held ? def.actuation.actuatedPosition : def.valve.restPosition;
-            break;
-          case "detent":
-            // latched: position changes on the input edge, handled in setInput
-            break;
-        }
+        const actuated = (rt.inputs.get(c.id) ?? false) || (rt.latched.get(c.id) ?? false);
+        const next = actuated ? def.actuation.actuatedPosition : def.valve.restPosition;
         if (next !== rt.valvePositions.get(c.id)) {
           rt.valvePositions.set(c.id, next);
           changed = true;
@@ -130,7 +153,11 @@ export class Engine {
       }
 
       // Phases 3 & 4 — active paths + pressure propagation.
-      const result = solve({ circuit, valvePositions: rt.valvePositions });
+      const result = solve({
+        circuit,
+        valvePositions: rt.valvePositions,
+        supplyOn: rt.supplyOn,
+      });
       rt.portStates = result.portStates;
       rt.warnings = result.warnings;
 

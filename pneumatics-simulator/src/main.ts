@@ -6,6 +6,7 @@ import { mountBrand } from "@/ui/brand.ts";
 import { mountLibrary } from "@/ui/library.ts";
 import { mountProperties } from "@/ui/properties.ts";
 import { mountControls } from "@/ui/controls.ts";
+import { mountControlPanel } from "@/ui/control-panel.ts";
 import { mountStatus } from "@/ui/status.ts";
 import { demoCircuit } from "@/ui/demo.ts";
 import "@/ui/style.css";
@@ -23,6 +24,7 @@ const renderer = new Renderer($("workspace"), store, engine, bus);
 
 mountBrand($("brand"));
 mountLibrary({ list: $("library"), renderer, bus, store });
+mountControlPanel({ host: $("run-controls"), store, engine, bus });
 mountProperties({ host: $("properties"), store, engine, bus, renderer });
 mountControls({ host: $("sim-controls"), actions: $("toolbar-actions"), store, engine, bus });
 mountStatus({ host: $("status"), store, engine, bus });

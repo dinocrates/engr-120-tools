@@ -241,6 +241,10 @@ export class Renderer {
         this.renderKey.set(inst.id, key);
       }
 
+      // control-panel state -> component styling
+      g.classList.toggle("input-off", live && !!def.supply && !(rt.supplyOn.get(inst.id) ?? true));
+      g.classList.toggle("latched-on", live && !!def.actuation && !!rt.latched.get(inst.id));
+
       // continuous state -> piston / needle
       const artSvg = g.querySelector<SVGElement>(".artwork > svg");
       if (artSvg) {

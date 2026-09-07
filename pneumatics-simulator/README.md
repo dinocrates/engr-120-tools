@@ -25,6 +25,7 @@ shifts, pressure propagates, the cylinder extends. Release and it retracts.
 | Searchable categorised library with hardware/symbol thumbnails | ✅ |
 | Inspector — identity, editable params, read-only live values, symbol/hardware compare, "How it works" | ✅ |
 | Transport — Run / Pause / Step / Reset, speed, live position meter (SDD §22, §36) | ✅ |
+| Run-mode operator control panel — latch valve actuators, supply on/off (UI_DESIGN_BIBLE §2.3, §6) | ✅ |
 | Network-state solver — pressurised / exhausting / trapped regions (SDD §9–11) | ✅ |
 | White-halo tubing in five states (UI_DESIGN_BIBLE §10) | ✅ |
 | Components: air supply, exhaust, 3/2 NC valve, 5/2 valve, single- & double-acting cylinder | ✅ |
@@ -55,7 +56,7 @@ src/
   solver/      network-state pressure solver + validator
   sim/         simulation engine — the §11 phase cycle, valve logic, cylinder motion
   render/      SVG renderer — inlines kit artwork, view toggle, pointer interaction
-  ui/          brand header, library, inspector, transport, status, demo circuit
+  ui/          brand header, library, inspector, run control panel, transport, status, demo
   events/      typed event bus (§32)
 ```
 

@@ -24,6 +24,8 @@ export interface SolveInput {
   circuit: Circuit;
   /** componentId -> active spool position index. */
   valvePositions: Map<string, number>;
+  /** supply componentId -> air turned on (absent / true = on). */
+  supplyOn?: Map<string, boolean>;
 }
 
 export interface SolveResult {
@@ -63,7 +65,7 @@ class UnionFind {
   }
 }
 
-export function solve({ circuit, valvePositions }: SolveInput): SolveResult {
+export function solve({ circuit, valvePositions, supplyOn }: SolveInput): SolveResult {
   const uf = new UnionFind();
   const warnings: string[] = [];
 
@@ -116,7 +118,7 @@ export function solve({ circuit, valvePositions }: SolveInput): SolveResult {
       if (p.kind !== "air") continue;
       const root = uf.find(nodeKey(c.id, p.id));
       const r = ensure(root);
-      if (def.supply?.port === p.id) r.hasSource = true;
+      if (def.supply?.port === p.id && (supplyOn?.get(c.id) ?? true)) r.hasSource = true;
       if (def.exhaust?.port === p.id) r.hasExhaust = true;
       if (def.cylinder) {
         r.hasCylinder = true;
