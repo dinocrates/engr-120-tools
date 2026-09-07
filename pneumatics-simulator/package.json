@@ -1,0 +1,19 @@
+{
+  "name": "pneumatics-simulator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser-based pneumatic circuit simulator for ENGR 120",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node e2e/smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

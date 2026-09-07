@@ -1,0 +1,174 @@
+:root {
+  --bg: #10151c;
+  --bg-panel: #171e27;
+  --bg-workspace: #1b2530;
+  --grid: #223040;
+  --border: #2a3644;
+  --text: #d6dee7;
+  --text-dim: #8595a6;
+  --accent: #4ba3ff;
+  --accent-press: #2f7fd6;
+
+  --st-unpressurized: #55636f;
+  --st-pressurized: #33d17a;
+  --st-exhausting: #6fa8dc;
+  --st-trapped: #f0b429;
+  --st-short: #ff5c5c;
+
+  --schematic: #c4cfda;
+  --font: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0 0 10px; }
+kbd {
+  background: var(--bg); border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 3px; padding: 0 4px; font-family: inherit; font-size: 11px;
+}
+button {
+  font: inherit; color: var(--text); background: #222d39; border: 1px solid var(--border);
+  border-radius: 5px; padding: 5px 12px; cursor: pointer;
+}
+button:hover:not(:disabled) { background: #2b3947; border-color: #3b4b5c; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.ctl-primary { background: var(--accent); border-color: var(--accent); color: #06121f; font-weight: 600; }
+button.ctl-primary:hover:not(:disabled) { background: #5fb0ff; }
+select, input {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 6px;
+}
+input[type="number"] { width: 68px; }
+
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+.app-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+}
+.app-title { font-weight: 600; letter-spacing: 0.01em; }
+.home-link { color: var(--text-dim); text-decoration: none; font-size: 12px; }
+.home-link:hover { color: var(--text); }
+
+.app-body { display: flex; flex: 1; min-height: 0; }
+.panel {
+  background: var(--bg-panel); padding: 14px; overflow-y: auto; flex-shrink: 0;
+}
+.panel-left { width: 210px; border-right: 1px solid var(--border); }
+.panel-right { width: 250px; border-left: 1px solid var(--border); }
+.panel.disabled { opacity: 0.5; pointer-events: none; }
+
+.workspace { flex: 1; min-width: 0; position: relative; background: var(--bg-workspace); }
+
+.app-foot {
+  display: flex; align-items: center; gap: 18px; padding: 8px 14px;
+  background: var(--bg-panel); border-top: 1px solid var(--border); flex-wrap: wrap;
+}
+
+/* ---- library ---- */
+.lib-list { display: flex; flex-direction: column; gap: 6px; }
+.lib-item { text-align: left; }
+.lib-item.active { background: var(--accent); border-color: var(--accent); color: #06121f; font-weight: 600; }
+.lib-hint { color: var(--text-dim); font-size: 11.5px; line-height: 1.5; margin-top: 14px; }
+
+/* ---- properties ---- */
+.props { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.props dt { color: var(--text-dim); }
+.props dd { margin: 0; }
+.muted { color: var(--text-dim); }
+
+/* ---- controls ---- */
+.ctl-group { display: flex; gap: 6px; }
+.ctl-file { margin-left: auto; }
+.ctl-speed { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
+
+/* ---- status ---- */
+.status { flex-basis: 100%; }
+.status-head { font-size: 12px; margin-bottom: 4px; }
+.s-ok { color: var(--st-pressurized); }
+.s-count { color: var(--st-trapped); }
+.status-list { margin: 0; padding-left: 18px; max-height: 72px; overflow-y: auto; }
+.status-list li { line-height: 1.5; }
+.s-error { color: var(--st-short); }
+.s-warning { color: var(--st-trapped); }
+
+/* ---- svg workspace ---- */
+.ws-svg {
+  width: 100%; height: 100%; display: block;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.ws-svg[data-mode="run"] { cursor: default; }
+
+.layer-components .component { cursor: grab; }
+.ws-svg[data-mode="run"] .layer-components .component { cursor: pointer; }
+
+.sym { fill: none; stroke: var(--schematic); stroke-width: 1.6; }
+.sym text { fill: var(--schematic); stroke: none; }
+.sym-body { fill: none; }
+.sym-solid { fill: var(--schematic); stroke: none; }
+.port-stub { stroke: var(--schematic); stroke-width: 1.6; }
+
+/* ports */
+.ports .port { fill: #0c1117; stroke: var(--text-dim); stroke-width: 1.2; }
+.ws-svg[data-mode="edit"] .ports .port:hover { fill: var(--accent); stroke: var(--accent); r: 5; }
+.ws-svg[data-mode="run"] .ports { display: none; }
+
+/* selection */
+.component.selected .sym { stroke: var(--accent); }
+.component.selected .port-stub { stroke: var(--accent); }
+.wire.selected { stroke: var(--accent) !important; stroke-width: 3; }
+.component.ghost { opacity: 0.45; pointer-events: none; }
+
+/* wires */
+.wire {
+  fill: none; stroke: var(--st-unpressurized); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.wire-pressurized { stroke: var(--st-pressurized); stroke-width: 3; stroke-dasharray: 7 5; animation: flow 0.6s linear infinite; }
+.wire-exhausting { stroke: var(--st-exhausting); stroke-width: 2.4; stroke-dasharray: 3 4; animation: flow 0.9s linear infinite; }
+.wire-trapped { stroke: var(--st-trapped); stroke-width: 2.4; stroke-dasharray: 1 4; }
+.wire-short { stroke: var(--st-short); stroke-width: 3; }
+.wire.rubber { stroke: var(--accent); stroke-dasharray: 4 3; pointer-events: none; }
+@keyframes flow { to { stroke-dashoffset: -12; } }
+@media (prefers-reduced-motion: reduce) {
+  .wire-pressurized, .wire-exhausting { animation: none; }
+}
+
+/* pressure state fills (chambers, valve paths) */
+.state-pressurized { stroke: var(--st-pressurized); }
+.state-exhausting { stroke: var(--st-exhausting); }
+.state-trapped { stroke: var(--st-trapped); }
+.state-short { stroke: var(--st-short); }
+
+.cyl-barrel { fill: #10161d; stroke: var(--schematic); stroke-width: 1.8; }
+.cyl-chamber { stroke: none; fill: var(--st-unpressurized); opacity: 0.28; }
+.cyl-chamber.state-pressurized { fill: var(--st-pressurized); opacity: 0.4; }
+.cyl-chamber.state-exhausting { fill: var(--st-exhausting); opacity: 0.22; }
+.cyl-chamber.state-trapped { fill: var(--st-trapped); opacity: 0.3; }
+.cyl-piston { fill: var(--schematic); stroke: none; }
+.cyl-rod { stroke: var(--schematic); stroke-width: 3; }
+.cyl-rodend, .cyl-gland { fill: var(--schematic); stroke: none; }
+
+.vbox-frame { fill: #10161d; stroke: var(--schematic); stroke-width: 1.6; }
+.vbox.active .vbox-frame { fill: #16202a; stroke: var(--accent); }
+.vpath { stroke: var(--schematic); stroke-width: 1.8; }
+.vpath.state-pressurized { stroke: var(--st-pressurized); stroke-width: 2.4; }
+.vpath.state-exhausting { stroke: var(--st-exhausting); }
+.arrowhead { fill: var(--schematic); stroke: none; }
+.vpath.state-pressurized ~ .vpath { }
+
+.actuator .pb-cap { fill: #2b3947; stroke: var(--schematic); }
+.sym-valve.pressed .actuator-pb { transform: translateX(4px); }
+.actuator-pb { transition: transform 0.12s ease; }
+.spring-coil { stroke: var(--text-dim); stroke-width: 1.4; }
+.venvelope { transition: transform 0.14s ease; }
+
+.actuator-hit { fill: transparent; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .venvelope, .actuator-pb { transition: none; }
+}

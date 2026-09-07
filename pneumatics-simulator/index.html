@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231b2530'/%3E%3Crect x='3' y='6' width='7' height='4' fill='none' stroke='%2333d17a' stroke-width='1.2'/%3E%3Cline x1='10' y1='8' x2='14' y2='8' stroke='%2333d17a' stroke-width='1.6'/%3E%3C/svg%3E"
+    />
+    <title>Pneumatic Circuit Simulator</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-bar">
+        <span class="app-title">Pneumatic Circuit Simulator</span>
+        <a class="home-link" href="../">&larr; ENGR 120 Tools</a>
+      </header>
+      <div class="app-body">
+        <aside id="library" class="panel panel-left"></aside>
+        <main id="workspace" class="workspace"></main>
+        <aside id="properties" class="panel panel-right"></aside>
+      </div>
+      <footer class="app-foot">
+        <div id="sim-controls" class="sim-controls"></div>
+        <div id="status" class="status"></div>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
