@@ -196,7 +196,7 @@ The tool performs standard beam theory calculations:
 ## File Structure
 
 ```
-beam-analysis.html
+index.html
 ├── HTML Structure
 ├── Embedded CSS (responsive dark theme)
 ├── JavaScript
