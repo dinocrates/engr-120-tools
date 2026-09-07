@@ -31,3 +31,13 @@ export function line(x1: number, y1: number, x2: number, y2: number, cls?: strin
 export function group(cls?: string, transform?: string): SVGGElement {
   return svg("g", { class: cls, transform });
 }
+
+/** Parse a trusted, bundled SVG string into a live element. */
+export function parseSvg(markup: string): SVGSVGElement {
+  const doc = new DOMParser().parseFromString(markup, "image/svg+xml");
+  const el = doc.documentElement;
+  if (el.nodeName !== "svg") {
+    throw new Error("Bundled asset failed to parse as SVG");
+  }
+  return document.importNode(el, true) as unknown as SVGSVGElement;
+}

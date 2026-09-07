@@ -119,9 +119,8 @@ export class Engine {
           case "momentary":
             next = held ? def.actuation.actuatedPosition : def.valve.restPosition;
             break;
-          case "toggle":
           case "detent":
-            // handled on input edge elsewhere; leave as-is here
+            // latched: position changes on the input edge, handled in setInput
             break;
         }
         if (next !== rt.valvePositions.get(c.id)) {
@@ -157,12 +156,21 @@ export class Engine {
       if (!def.cylinder) continue;
 
       const cap = rt.portStates.get(nodeKey(c.id, def.cylinder.capPort)) ?? "UNPRESSURIZED";
-      const rod = rt.portStates.get(nodeKey(c.id, def.cylinder.rodPort)) ?? "UNPRESSURIZED";
+      const rod = def.cylinder.rodPort
+        ? rt.portStates.get(nodeKey(c.id, def.cylinder.rodPort)) ?? "UNPRESSURIZED"
+        : "UNPRESSURIZED";
       const vented = (s: PressureState) => s === "EXHAUSTING" || s === "UNPRESSURIZED";
 
+      // SDD §14: single-acting cylinders are spring-returned — cap pressure
+      // extends, anything else lets the spring retract them.
       let dir: CylinderDirection = "holding";
-      if (cap === "PRESSURIZED" && vented(rod)) dir = "extending";
-      else if (rod === "PRESSURIZED" && vented(cap)) dir = "retracting";
+      if (def.cylinder.springReturn) {
+        dir = cap === "PRESSURIZED" ? "extending" : "retracting";
+      } else if (cap === "PRESSURIZED" && vented(rod)) {
+        dir = "extending";
+      } else if (rod === "PRESSURIZED" && vented(cap)) {
+        dir = "retracting";
+      }
 
       const pos = rt.cylinderPos.get(c.id) ?? 0;
       const extendSpeed = Number(c.params.extendSpeed ?? def.defaultParams?.extendSpeed ?? 0.6);

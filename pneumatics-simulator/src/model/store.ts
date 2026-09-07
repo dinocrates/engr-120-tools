@@ -44,13 +44,15 @@ export class Store {
 
   addComponent(type: string, position: Vec2): ComponentInstance {
     const def = getDef(type);
-    const count = this.circuit.components.filter((c) => c.type === type).length + 1;
+    const prefix = labelPrefix(def);
+    const count =
+      this.circuit.components.filter((c) => (c.label ?? "").startsWith(prefix)).length + 1;
     const inst: ComponentInstance = {
-      id: uid(type[0]!.toUpperCase()),
+      id: uid(prefix),
       type,
       position,
       rotation: 0,
-      label: `${abbrev(def.name)}${count}`,
+      label: `${prefix}${count}`,
       params: { ...(def.defaultParams ?? {}) },
     };
     this.circuit.components.push(inst);
@@ -143,8 +145,11 @@ export class Store {
   }
 }
 
-function abbrev(name: string): string {
-  const words = name.split(/\s+/);
-  if (words.length === 1) return name.slice(0, 2).toUpperCase();
-  return words.map((w) => w[0]!.toUpperCase()).join("");
+function labelPrefix(def: ReturnType<typeof getDef>): string {
+  if (def.valve) return "V";
+  if (def.cylinder) return "C";
+  if (def.supply) return "SUP";
+  if (def.exhaust) return "EX";
+  if (def.gauge) return "PG";
+  return "P";
 }

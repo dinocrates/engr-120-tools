@@ -67,9 +67,11 @@ export function solve({ circuit, valvePositions }: SolveInput): SolveResult {
   const uf = new UnionFind();
   const warnings: string[] = [];
 
-  // 1. every port is a node
+  // 1. every air port is a node (control-signal ports are a separate graph)
   for (const c of circuit.components) {
-    for (const p of getDef(c.type).ports) uf.add(nodeKey(c.id, p.id));
+    for (const p of getDef(c.type).ports) {
+      if (p.kind === "air") uf.add(nodeKey(c.id, p.id));
+    }
   }
 
   // 2. external connections
@@ -88,7 +90,10 @@ export function solve({ circuit, valvePositions }: SolveInput): SolveResult {
     }
   }
 
-  // 4. classify each region
+  // 4. classify each region. Supply / exhaust are component roles, not port
+  //    kinds (UI_DESIGN_BIBLE §7): an air-supply feeds pressure, an exhaust
+  //    component is an open path to atmosphere. An unconnected valve port is a
+  //    dead end, not a vent.
   interface RegionInfo {
     hasSource: boolean;
     hasExhaust: boolean;
@@ -108,12 +113,15 @@ export function solve({ circuit, valvePositions }: SolveInput): SolveResult {
   for (const c of circuit.components) {
     const def = getDef(c.type);
     for (const p of def.ports) {
+      if (p.kind !== "air") continue;
       const root = uf.find(nodeKey(c.id, p.id));
       const r = ensure(root);
-      if (def.supply && def.supply.port === p.id) r.hasSource = true;
-      if (p.kind === "exhaust") r.hasExhaust = true;
-      if (p.kind === "working") r.hasWorking = true;
-      if (def.cylinder) r.hasCylinder = true;
+      if (def.supply?.port === p.id) r.hasSource = true;
+      if (def.exhaust?.port === p.id) r.hasExhaust = true;
+      if (def.cylinder) {
+        r.hasCylinder = true;
+        r.hasWorking = true;
+      }
     }
   }
 
@@ -125,6 +133,7 @@ export function solve({ circuit, valvePositions }: SolveInput): SolveResult {
 
   for (const c of circuit.components) {
     for (const p of getDef(c.type).ports) {
+      if (p.kind !== "air") continue;
       const key = nodeKey(c.id, p.id);
       const root = uf.find(key);
       let id = idOfRoot.get(root);
@@ -154,11 +163,8 @@ export function solve({ circuit, valvePositions }: SolveInput): SolveResult {
   const portStates = new Map<string, PressureState>();
   for (const [key, id] of regionOf) portStates.set(key, regionStates.get(id)!);
 
-  for (const [id, state] of regionStates) {
-    if (state === "SHORT") {
-      warnings.push("Supply is connected directly to exhaust (short circuit).");
-      void id;
-    }
+  if ([...regionStates.values()].includes("SHORT")) {
+    warnings.push("Supply is connected directly to exhaust (short circuit).");
   }
 
   return { portStates, regionOf, regionStates, warnings };

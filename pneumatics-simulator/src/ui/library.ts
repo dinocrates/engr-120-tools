@@ -1,33 +1,72 @@
 import { COMPONENT_DEFS, LIBRARY_ORDER } from "@/components/defs.ts";
 import type { EventBus } from "@/events/bus.ts";
+import { kitComponent } from "@/kit/manifest.ts";
+import { componentSvg } from "@/kit/render-state.ts";
 import type { Store } from "@/model/store.ts";
 import type { Renderer } from "@/render/renderer.ts";
 
-/** Component palette (SDD §5.1, §27). Click an item, then click the canvas to place. */
-export function mountLibrary(host: HTMLElement, renderer: Renderer, bus: EventBus, store: Store): void {
-  host.innerHTML = `<h2>Components</h2><div class="lib-list"></div>
-    <p class="lib-hint">Click a component, then click the workspace to place it.
-    Drag one port onto another to connect. <kbd>R</kbd> rotate &middot; <kbd>Del</kbd> remove.</p>`;
-  const list = host.querySelector<HTMLDivElement>(".lib-list")!;
+interface Args {
+  list: HTMLElement;
+  renderer: Renderer;
+  bus: EventBus;
+  store: Store;
+}
 
-  for (const type of LIBRARY_ORDER) {
-    const def = COMPONENT_DEFS[type]!;
-    const btn = document.createElement("button");
-    btn.className = "lib-item";
-    btn.dataset.type = type;
-    btn.textContent = def.name;
-    btn.addEventListener("click", () => {
-      const isActive = btn.classList.contains("active");
-      renderer.setPendingType(isActive ? null : type);
+/** Searchable component palette (UI_DESIGN_BIBLE §5.1, §6, §27). */
+export function mountLibrary({ list, renderer, bus, store }: Args): void {
+  list.innerHTML = `
+    <p class="eyebrow">Component library</p>
+    <div class="search-wrap">
+      <input id="lib-search" class="search" type="search" placeholder="Search components…"
+        aria-label="Search components" />
+    </div>
+    <div class="parts" id="lib-parts"></div>
+    <p class="instruction">Click a component, then click the workspace to place it.
+    Drag one port onto another to connect. <kbd>R</kbd> rotates, <kbd>Del</kbd> removes.</p>`;
+
+  const parts = list.querySelector<HTMLDivElement>("#lib-parts")!;
+  const search = list.querySelector<HTMLInputElement>("#lib-search")!;
+
+  const render = (): void => {
+    const q = search.value.trim().toLowerCase();
+    const matches = LIBRARY_ORDER.map((id) => COMPONENT_DEFS[id]!).filter(
+      (d) => d.name.toLowerCase().includes(q) || d.category.toLowerCase().includes(q) || d.type.includes(q),
+    );
+
+    if (matches.length === 0) {
+      parts.innerHTML = `<p class="empty-result">No components match “${escapeHtml(search.value)}”.</p>`;
+      return;
+    }
+
+    let category = "";
+    parts.innerHTML = matches
+      .map((d) => {
+        const head = d.category !== category ? `<p class="category">${d.category}</p>` : "";
+        category = d.category;
+        const thumb = componentSvg(kitComponent(d.type), "symbol", d.defaultState);
+        return `${head}<button class="part" type="button" data-type="${d.type}">${thumb}<span>${d.name}</span></button>`;
+      })
+      .join("");
+
+    parts.querySelectorAll<HTMLButtonElement>(".part").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const active = btn.classList.contains("active");
+        renderer.setPendingType(active ? null : btn.dataset.type!);
+      });
     });
-    list.append(btn);
-  }
+  };
 
+  search.addEventListener("input", render);
   bus.on("pending:changed", (type) => {
-    list.querySelectorAll(".lib-item").forEach((b) => {
+    parts.querySelectorAll(".part").forEach((b) => {
       b.classList.toggle("active", (b as HTMLElement).dataset.type === type);
     });
   });
+  bus.on("mode:changed", () => list.classList.toggle("disabled", store.mode === "run"));
 
-  bus.on("mode:changed", () => host.classList.toggle("disabled", store.mode === "run"));
+  render();
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 }

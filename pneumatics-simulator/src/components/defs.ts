@@ -1,126 +1,151 @@
 /**
- * Data-driven component definitions (SDD §44).
+ * Component definitions (SDD §7, §44; UI_DESIGN_BIBLE §8).
  *
- * A ComponentDef is pure data describing a component's ports, geometry and
- * behavioral role. The simulation engine reads these; rendering is handled
- * separately by a symbol registry keyed on `type` (SDD §30).
+ * Geometry, ports, viewBoxes and valve truth tables come straight from the UI
+ * kit's `manifest.json` — this module adds only the *engine-facing* behaviour
+ * the manifest doesn't describe: actuation style, cylinder spring return,
+ * supply / exhaust roles, default parameters.
  *
- * Adding a new directional valve (2/2, 3/2, 4/2, 5/3, ...) should be a matter
- * of adding a def here plus a symbol — no engine changes.
+ * Adding a component that the kit already ships (flow control, check valve,
+ * regulator, gauge, limit valve, signal glyphs) is a matter of adding an entry
+ * to `BEHAVIOURS` below plus whatever solver support it needs.
  */
 
-import type { PortKind, Vec2 } from "@/model/types.ts";
+import { kitComponent, manifest, type KitComponent, type KitView } from "@/kit/manifest.ts";
+import type { Vec2 } from "@/model/types.ts";
 
 export interface PortDef {
   id: string;
-  kind: PortKind;
-  /** Local coordinates, component unrotated, origin at top-left of `size`. */
+  kind: "air" | "signal";
   offset: Vec2;
-  /** Optional ISO 1219 port number / label. */
-  label?: string;
 }
 
 export interface ValvePositionDef {
-  name?: string;
-  /** Port id pairs internally connected while the spool is in this position. */
+  /** state name — also selects the artwork (`rest`, `actuated`, ...) */
+  name: string;
+  /** port id pairs internally connected in this spool position */
   connections: Array<[string, string]>;
+  /** ports sealed in this position (display / validation only) */
+  blocked: string[];
 }
-
-export type ActuationKind = "momentary" | "detent" | "toggle";
 
 export interface ComponentDef {
   type: string;
   name: string;
-  category: "supply" | "valve" | "actuator" | "flow" | "sensor";
-  /** Bounding box in schematic units (px at 1x zoom). */
+  category: string;
+  viewBox: [number, number, number, number];
   size: Vec2;
   ports: PortDef[];
-  defaultParams?: Record<string, string | number | boolean>;
+  defaultView: KitView;
+  defaultState: string;
+  defaultParams: Record<string, string | number | boolean>;
 
-  /** Present for directional control valves. */
   valve?: {
     positions: ValvePositionDef[];
-    /** Index of the spring / de-actuated rest position. */
     restPosition: number;
   };
-
-  /** How the valve is driven from user input (MVP: manual only). */
   actuation?: {
-    kind: ActuationKind;
-    /** Position index the valve moves to when actuated. */
+    kind: "momentary" | "detent";
     actuatedPosition: number;
-    /** Label shown on the on-canvas control. */
     control: string;
   };
-
-  /** Present for cylinders. */
   cylinder?: {
     capPort: string;
-    rodPort: string;
-    /** true = single-acting spring return. */
+    /** absent for single-acting (spring return) cylinders */
+    rodPort?: string;
     springReturn: boolean;
   };
-
-  /** Present for the air supply. */
   supply?: { port: string };
+  exhaust?: { port: string };
+  gauge?: { pivot: [number, number] };
 }
 
-const SUPPLY: ComponentDef = {
-  type: "supply",
-  name: "Air Supply",
-  category: "supply",
-  size: { x: 44, y: 52 },
-  supply: { port: "P" },
-  ports: [{ id: "P", kind: "pressure", offset: { x: 22, y: 52 }, label: "1" }],
-};
+interface Behaviour {
+  actuation?: ComponentDef["actuation"];
+  cylinder?: ComponentDef["cylinder"];
+  supply?: ComponentDef["supply"];
+  exhaust?: ComponentDef["exhaust"];
+  gauge?: ComponentDef["gauge"];
+  defaultParams?: Record<string, string | number | boolean>;
+}
 
-const VALVE_5_2: ComponentDef = {
-  type: "valve_5_2",
-  name: "5/2 Valve",
-  category: "valve",
-  size: { x: 88, y: 52 },
-  defaultParams: { actuator: "pushbutton", return: "spring" },
-  ports: [
-    { id: "A", kind: "working", offset: { x: 26, y: 0 }, label: "4" },
-    { id: "B", kind: "working", offset: { x: 62, y: 0 }, label: "2" },
-    { id: "S", kind: "exhaust", offset: { x: 14, y: 52 }, label: "5" },
-    { id: "P", kind: "pressure", offset: { x: 44, y: 52 }, label: "1" },
-    { id: "R", kind: "exhaust", offset: { x: 74, y: 52 }, label: "3" },
-  ],
-  valve: {
-    restPosition: 0,
-    positions: [
-      { name: "rest", connections: [["P", "B"], ["A", "R"]] },
-      { name: "actuated", connections: [["P", "A"], ["B", "S"]] },
-    ],
+/** Engine behaviour, keyed by kit component id. Only listed components are usable. */
+const BEHAVIOURS: Record<string, Behaviour> = {
+  "air-supply": { supply: { port: "1" }, defaultParams: { pressure: 600 } },
+  exhaust: { exhaust: { port: "1" } },
+  "valve-5-2": {
+    actuation: { kind: "momentary", actuatedPosition: 1, control: "Pushbutton" },
+    defaultParams: { return: "spring" },
   },
-  actuation: { kind: "momentary", actuatedPosition: 1, control: "PB" },
-};
-
-const CYLINDER_DA: ComponentDef = {
-  type: "cylinder_da",
-  name: "Double-Acting Cylinder",
-  category: "actuator",
-  size: { x: 160, y: 40 },
-  defaultParams: { stroke: 1, extendSpeed: 0.6, retractSpeed: 0.6 },
-  cylinder: { capPort: "A", rodPort: "B", springReturn: false },
-  ports: [
-    { id: "A", kind: "working", offset: { x: 14, y: 40 } },
-    { id: "B", kind: "working", offset: { x: 70, y: 40 } },
-  ],
-};
-
-export const COMPONENT_DEFS: Record<string, ComponentDef> = {
-  [SUPPLY.type]: SUPPLY,
-  [VALVE_5_2.type]: VALVE_5_2,
-  [CYLINDER_DA.type]: CYLINDER_DA,
+  "valve-3-2-nc": {
+    actuation: { kind: "momentary", actuatedPosition: 1, control: "Pushbutton" },
+    defaultParams: { return: "spring" },
+  },
+  "cylinder-double": {
+    cylinder: { capPort: "cap", rodPort: "rod", springReturn: false },
+    defaultParams: { stroke: 200, extendSpeed: 0.55, retractSpeed: 0.55 },
+  },
+  "cylinder-single": {
+    cylinder: { capPort: "cap", springReturn: true },
+    defaultParams: { stroke: 160, extendSpeed: 0.6, retractSpeed: 0.9 },
+  },
 };
 
 /** Order shown in the library palette. */
-export const LIBRARY_ORDER: string[] = [SUPPLY.type, VALVE_5_2.type, CYLINDER_DA.type];
+export const LIBRARY_ORDER: string[] = [
+  "air-supply",
+  "exhaust",
+  "valve-3-2-nc",
+  "valve-5-2",
+  "cylinder-single",
+  "cylinder-double",
+];
+
+function buildDef(kit: KitComponent, b: Behaviour): ComponentDef {
+  const [, , w, h] = kit.viewBox;
+
+  let valve: ComponentDef["valve"];
+  if (kit.connections) {
+    const states = [kit.defaultState, ...Object.keys(kit.connections).filter((s) => s !== kit.defaultState)];
+    valve = {
+      restPosition: 0,
+      positions: states.map((name) => ({
+        name,
+        connections: kit.connections![name] ?? [],
+        blocked: kit.blocked?.[name] ?? [],
+      })),
+    };
+  }
+
+  return {
+    type: kit.id,
+    name: kit.label,
+    category: kit.category,
+    viewBox: kit.viewBox,
+    size: { x: w, y: h },
+    ports: kit.ports.map((p) => ({ id: p.id, kind: p.kind, offset: { x: p.x, y: p.y } })),
+    defaultView: manifest.defaultView,
+    defaultState: kit.defaultState,
+    defaultParams: b.defaultParams ?? {},
+    ...(valve ? { valve } : {}),
+    ...(b.actuation ? { actuation: b.actuation } : {}),
+    ...(b.cylinder ? { cylinder: b.cylinder } : {}),
+    ...(b.supply ? { supply: b.supply } : {}),
+    ...(b.exhaust ? { exhaust: b.exhaust } : {}),
+    ...(b.gauge ? { gauge: b.gauge } : {}),
+  };
+}
+
+export const COMPONENT_DEFS: Record<string, ComponentDef> = Object.fromEntries(
+  Object.entries(BEHAVIOURS).map(([id, b]) => [id, buildDef(kitComponent(id), b)]),
+);
 
 export function getDef(type: string): ComponentDef {
   const def = COMPONENT_DEFS[type];
-  if (!def) throw new Error(`Unknown component type: ${type}`);
+  if (!def) throw new Error(`Unknown / unsupported component type: ${type}`);
   return def;
+}
+
+export function isSupported(type: string): boolean {
+  return type in COMPONENT_DEFS;
 }

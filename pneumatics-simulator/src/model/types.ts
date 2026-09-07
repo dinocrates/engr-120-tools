@@ -10,14 +10,12 @@ export interface Vec2 {
 
 export type Rotation = 0 | 90 | 180 | 270;
 
-/** SDD §8 — port kinds. Only a subset is used by the MVP. */
-export type PortKind =
-  | "pressure"
-  | "working"
-  | "exhaust"
-  | "pilot"
-  | "mechanical"
-  | "electrical";
+/**
+ * SDD §8 — port kinds. The UI kit distinguishes only air paths from control
+ * signals; supply / exhaust / working roles come from the component definition,
+ * not the port (UI_DESIGN_BIBLE §7).
+ */
+export type PortKind = "air" | "signal";
 
 /** A placed component. `type` refers to a ComponentDef in the library. */
 export interface ComponentInstance {

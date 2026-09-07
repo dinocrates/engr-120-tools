@@ -1,0 +1,27 @@
+@font-face{font-family:PneuPixel;src:url('../assets/fonts/pneu-pixel.ttf') format('truetype');font-display:swap}
+:root{--font-display:PneuPixel,ui-monospace,monospace;--radius:0px;--pixel-bevel:inset 3px 3px 0 #FFFFFF,inset -3px -3px 0 #7B93B9,0 3px 0 #061C42}
+body{background-color:#081C3C;background-image:linear-gradient(#12315644 1px,transparent 1px),linear-gradient(90deg,#12315644 1px,transparent 1px);background-size:24px 24px}
+header{height:auto;min-height:100px;padding:0 12px;border-bottom:4px solid #75D9FF;background:linear-gradient(110deg,#0C234B,#102E61 65%,#0A1A38)}
+header picture{display:block;width:100%}.header-lockup{display:block;width:100%;max-width:1440px;height:auto;margin:0 auto;filter:drop-shadow(0 3px 0 #06172E)}
+.workspace{border:3px solid #75D9FF;border-radius:0;box-shadow:0 0 0 2px #06172E,inset 0 0 0 2px #2C75AC,0 8px 0 #06172E}
+.toolbar{background:linear-gradient(#236DB8,#164B91);border-bottom:3px solid #092854;color:#FFF}
+.project small{color:#C0E7FF}.segments{border:2px solid #072452;border-radius:0;background:#6F91BD;box-shadow:inset 0 2px #C2E8FF}
+.segments button{border-radius:0;background:#DCE6F4;color:#10233F;box-shadow:inset 2px 2px #FFF,inset -2px -2px #97AAC3}
+.segments button[aria-pressed=true]{background:#0879F1;box-shadow:inset 2px 2px #86DCFF,inset -2px -2px #124798}
+.library{background-color:#155B9C;background-image:linear-gradient(#3A7EBB55 1px,transparent 1px),linear-gradient(90deg,#3A7EBB55 1px,transparent 1px);background-size:12px 12px;border-right:3px solid #092854}
+.eyebrow{font:14px/1.2 var(--font-display);letter-spacing:0.4px;background:#0B2855;color:#DDF4FF;border-top:2px solid #75D9FF;padding:8px;margin-bottom:12px;box-shadow:0 2px 0 #07182F}
+.category{color:#CDEFFF;font-family:var(--font-display);font-size:13px}.instruction{color:#D5ECFF}
+.search{border:2px solid #0B2855;border-radius:0;box-shadow:inset 2px 2px #BACFE8;background:#F4F8FF}
+.part{border:2px solid #0B2855;border-radius:0;background:#E0E8F4;box-shadow:inset 2px 2px #FFF,inset -2px -2px #9CAFCB}
+.part:hover,.part.selected{border-color:#9CECFF;background:#BEDDFF;box-shadow:inset 4px 0 #137DFC,inset 0 2px #F5FCFF,inset 0 -2px #4A7FBA}
+.inspector{border-left:3px solid #092854;background:#D6E4F6}.compare div{border:2px solid #355E91;border-radius:0;box-shadow:inset 2px 2px #FFF,inset -2px -2px #A8BBD5}
+.badge,.tag{border:2px solid #0D3B73;border-radius:0;background:#D7EBFF;font-family:var(--font-display)}
+.controlbar{background:linear-gradient(#236DB8,#164B91);border-top:3px solid #75D9FF;color:#FFF}.controlbar .run{background:#20A637;border:2px solid #082A3C;box-shadow:inset 3px 3px #9EF45D,inset -3px -3px #0F6C28,0 3px #061C42}
+.pneu-button{border-width:2px;border-radius:0;min-height:44px;font-family:var(--font-display);font-size:15px;line-height:1.2;box-shadow:var(--pixel-bevel)}
+.pneu-button--primary,#step{background:#0879F1;color:#FFF;box-shadow:inset 3px 3px #75D9FF,inset -3px -3px #124798,0 3px #061C42}
+#reset{background:#D93243;color:#FFF;box-shadow:inset 3px 3px #FFB2A5,inset -3px -3px #8F223B,0 3px #061C42}
+.time{background:#082955;border:1px solid #74BDEB;padding:9px 12px;color:#DDF5FF}.speed select{border:2px solid #092854;border-radius:0}
+.meter{border:2px solid #1B4575;height:12px;border-radius:0}.meter div{background:repeating-linear-gradient(90deg,#1685FA 0 10px,#68C6FF 10px 12px)}
+.catalog{border:3px solid #75D9FF;border-radius:0}.catalog>.eyebrow{max-width:460px}.asset-card,.icon-card,.tube-card{border:2px solid #2E578D;border-radius:0;box-shadow:3px 3px #A5B9D4}
+.state-grid svg{width:240px;height:120px}.state-grid figure{border:2px solid #285384;padding:8px}.state-grid figcaption{font-size:12px}
+@media(max-width:700px){header{min-height:94px}header picture{width:232px}.header-lockup{width:232px;max-width:100%;height:90px;object-fit:contain;object-position:left}.library{border-right:0}.pneu-button{font-size:14px}.controlbar{gap:10px}.state-grid svg{width:210px}}

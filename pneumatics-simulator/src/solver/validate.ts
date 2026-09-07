@@ -1,4 +1,4 @@
-/** Circuit validation (SDD §24). MVP subset. */
+/** Circuit validation (SDD §24; UI_DESIGN_BIBLE §11, §24). */
 
 import { getDef } from "@/components/defs.ts";
 import { nodeKey } from "@/model/geometry.ts";
@@ -9,6 +9,9 @@ export interface Issue {
   message: string;
   component?: string;
 }
+
+/** Valve air-supply port id, per the manifest (Festo port 1). */
+const VALVE_SUPPLY_PORT = "1";
 
 export function validate(circuit: Circuit): Issue[] {
   const issues: Issue[] = [];
@@ -28,7 +31,8 @@ export function validate(circuit: Circuit): Issue[] {
     const name = c.label || def.name;
 
     if (def.cylinder) {
-      for (const portId of [def.cylinder.capPort, def.cylinder.rodPort]) {
+      const ports = [def.cylinder.capPort, def.cylinder.rodPort].filter(Boolean) as string[];
+      for (const portId of ports) {
         if (!connected.has(nodeKey(c.id, portId))) {
           issues.push({
             severity: "error",
@@ -39,15 +43,12 @@ export function validate(circuit: Circuit): Issue[] {
       }
     }
 
-    if (def.valve) {
-      const pPort = def.ports.find((p) => p.kind === "pressure");
-      if (pPort && !connected.has(nodeKey(c.id, pPort.id))) {
-        issues.push({
-          severity: "warning",
-          message: `${name}: pressure port ${pPort.id} has no supply.`,
-          component: c.id,
-        });
-      }
+    if (def.valve && !connected.has(nodeKey(c.id, VALVE_SUPPLY_PORT))) {
+      issues.push({
+        severity: "warning",
+        message: `${name}: supply port ${VALVE_SUPPLY_PORT} has no pressure source.`,
+        component: c.id,
+      });
     }
   }
 

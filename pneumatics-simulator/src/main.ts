@@ -2,6 +2,7 @@ import { EventBus } from "@/events/bus.ts";
 import { Store } from "@/model/store.ts";
 import { Engine } from "@/sim/engine.ts";
 import { Renderer } from "@/render/renderer.ts";
+import { mountBrand } from "@/ui/brand.ts";
 import { mountLibrary } from "@/ui/library.ts";
 import { mountProperties } from "@/ui/properties.ts";
 import { mountControls } from "@/ui/controls.ts";
@@ -20,14 +21,36 @@ const store = new Store(bus);
 const engine = new Engine(() => store.circuit, bus);
 const renderer = new Renderer($("workspace"), store, engine, bus);
 
-mountLibrary($("library"), renderer, bus, store);
-mountProperties($("properties"), store, engine, bus);
-mountControls($("sim-controls"), store, engine, bus);
-mountStatus($("status"), store, engine, bus);
+mountBrand($("brand"));
+mountLibrary({ list: $("library"), renderer, bus, store });
+mountProperties({ host: $("properties"), store, engine, bus, renderer });
+mountControls({ host: $("sim-controls"), actions: $("toolbar-actions"), store, engine, bus });
+mountStatus({ host: $("status"), store, engine, bus });
 
-// Start from the SDD §48 MVP circuit so there is something to run immediately.
+// Segmented Symbols | Components control (UI_DESIGN_BIBLE §5).
+const viewButtons: Record<string, HTMLButtonElement> = {
+  symbol: $("viewSymbol") as HTMLButtonElement,
+  component: $("viewComponent") as HTMLButtonElement,
+};
+for (const [view, btn] of Object.entries(viewButtons)) {
+  btn.addEventListener("click", () => renderer.setView(view as "symbol" | "component"));
+}
+const syncBadge = (): void => {
+  for (const [view, btn] of Object.entries(viewButtons)) {
+    btn.setAttribute("aria-pressed", String(renderer.currentView === view));
+  }
+  $("stateBadge").textContent =
+    `${store.mode === "run" ? (engine.running ? "RUNNING" : "PAUSED") : "EDIT"} · ${renderer.currentView.toUpperCase()}S`;
+};
+bus.on("view:changed", syncBadge);
+bus.on("mode:changed", syncBadge);
+bus.on("sim:started", syncBadge);
+bus.on("sim:paused", syncBadge);
+bus.on("sim:reset", syncBadge);
+
 store.load(JSON.stringify(demoCircuit()));
 engine.reset();
+syncBadge();
 
 // ---- main loop -------------------------------------------------------------
 let last = performance.now();
@@ -39,18 +62,26 @@ function frame(now: number): void {
 }
 requestAnimationFrame(frame);
 
-// keyboard: delete selection, rotate, escape
+// ---- keyboard (UI_DESIGN_BIBLE §6) ---------------------------------------
 window.addEventListener("keydown", (e) => {
-  if (store.mode !== "edit") return;
+  const t = e.target as HTMLElement;
+  if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+    return;
+  }
   const sel = store.selection;
-  if (!sel) return;
-  if (e.key === "Delete" || e.key === "Backspace") {
-    if (store.getComponent(sel)) store.removeComponent(sel);
-    else store.removeConnection(sel);
-    bus.emit("status:changed");
-  } else if (e.key === "r" || e.key === "R") {
-    store.rotateComponent(sel, e.shiftKey ? -90 : 90);
-  } else if (e.key === "Escape") {
+  if (store.mode === "edit" && sel) {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (store.getComponent(sel)) store.removeComponent(sel);
+      else store.removeConnection(sel);
+      bus.emit("status:changed");
+      return;
+    }
+    if (e.key === "r" || e.key === "R") {
+      store.rotateComponent(sel, e.shiftKey ? -90 : 90);
+      return;
+    }
+  }
+  if (e.key === "Escape") {
     store.select(null);
     renderer.setPendingType(null);
   }

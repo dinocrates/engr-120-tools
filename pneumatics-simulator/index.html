@@ -5,26 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231b2530'/%3E%3Crect x='3' y='6' width='7' height='4' fill='none' stroke='%2333d17a' stroke-width='1.2'/%3E%3Cline x1='10' y1='8' x2='14' y2='8' stroke='%2333d17a' stroke-width='1.6'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='2' fill='%23081C3C'/%3E%3Crect x='3' y='6' width='7' height='4' fill='none' stroke='%2375D9FF' stroke-width='1.2'/%3E%3Cline x1='10' y1='8' x2='14' y2='8' stroke='%2375D9FF' stroke-width='1.6'/%3E%3C/svg%3E"
     />
     <title>Pneumatic Circuit Simulator</title>
   </head>
   <body>
     <div id="app">
-      <header class="app-bar">
-        <span class="app-title">Pneumatic Circuit Simulator</span>
-        <a class="home-link" href="../">&larr; ENGR 120 Tools</a>
-      </header>
-      <div class="app-body">
-        <aside id="library" class="panel panel-left"></aside>
-        <main id="workspace" class="workspace"></main>
-        <aside id="properties" class="panel panel-right"></aside>
+      <header id="brand"></header>
+
+      <div class="workspace">
+        <div class="toolbar">
+          <div class="project">
+            <span id="projectName">Untitled circuit</span>
+            <small id="saveStatus">Not saved</small>
+          </div>
+          <div class="segments" role="group" aria-label="Component representation">
+            <button id="viewSymbol" type="button" aria-pressed="true">Symbols</button>
+            <button id="viewComponent" type="button" aria-pressed="false">Components</button>
+          </div>
+          <div class="toolbar-actions" id="toolbar-actions"></div>
+        </div>
+
+        <div class="main">
+          <aside class="library" id="library"></aside>
+
+          <main class="canvas">
+            <div class="canvas-bar">
+              <span class="badge" id="stateBadge">EDIT · SYMBOLS</span>
+              <div id="canvas-tools"></div>
+            </div>
+            <div class="canvas-surface" id="workspace"></div>
+            <div class="legend">
+              <span style="--c: var(--pressure)">Pressurized</span>
+              <span style="--c: var(--exhaust)">Exhaust</span>
+              <span style="--c: var(--inactive)">Inactive</span>
+              <span style="--c: var(--trapped)">Trapped</span>
+            </div>
+          </main>
+
+          <aside class="inspector" id="properties"></aside>
+        </div>
+
+        <div class="controlbar" id="sim-controls"></div>
       </div>
-      <footer class="app-foot">
-        <div id="sim-controls" class="sim-controls"></div>
-        <div id="status" class="status"></div>
-      </footer>
+
+      <div class="statusstrip" id="status"></div>
     </div>
+
+    <input type="file" id="fileInput" accept="application/json" hidden />
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

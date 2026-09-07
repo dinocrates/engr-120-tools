@@ -1,75 +1,119 @@
+import { getDef } from "@/components/defs.ts";
 import type { EventBus } from "@/events/bus.ts";
 import type { Store } from "@/model/store.ts";
 import type { Engine } from "@/sim/engine.ts";
 import { demoCircuit } from "./demo.ts";
+import { iconSvg } from "./icons.ts";
+
+interface Args {
+  host: HTMLElement;
+  actions: HTMLElement;
+  store: Store;
+  engine: Engine;
+  bus: EventBus;
+}
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const STEP_DT = 1 / 30;
 
-/** Simulation toolbar (SDD §22) plus file actions (SDD §28). */
-export function mountControls(host: HTMLElement, store: Store, engine: Engine, bus: EventBus): void {
+/** Transport bar (UI_DESIGN_BIBLE §22) + project actions (§5). */
+export function mountControls({ host, actions, store, engine, bus }: Args): void {
+  actions.innerHTML = `
+    <button class="pneu-button" data-act="new">${iconSvg("new")}New</button>
+    <button class="pneu-button" data-act="open">${iconSvg("open")}Open</button>
+    <button class="pneu-button" data-act="save">${iconSvg("save")}Save</button>
+    <button class="pneu-button" data-act="demo">${iconSvg("book")}Demo</button>`;
+
   host.innerHTML = `
-    <div class="ctl-group">
-      <button data-act="run" class="ctl-primary">Run</button>
-      <button data-act="pause" disabled>Pause</button>
-      <button data-act="step">Step</button>
-      <button data-act="reset">Reset</button>
-    </div>
-    <label class="ctl-speed">Speed
-      <select data-act="speed">
-        ${SPEEDS.map((s) => `<option value="${s}" ${s === 1 ? "selected" : ""}>${s}&times;</option>`).join("")}
-      </select>
+    <button class="pneu-button run" id="run">${iconSvg("run")}Run</button>
+    <button class="pneu-button" id="pause" disabled>${iconSvg("pause")}Pause</button>
+    <button class="pneu-button" id="step">${iconSvg("step")}Step</button>
+    <button class="pneu-button" id="reset">${iconSvg("reset")}Reset</button>
+    <label class="speed">Speed
+      <select id="speed">${SPEEDS.map((s) => `<option value="${s}"${s === 1 ? " selected" : ""}>${s}×</option>`).join("")}</select>
     </label>
-    <div class="ctl-group ctl-file">
-      <button data-act="save">Save</button>
-      <button data-act="load">Load</button>
-      <button data-act="demo">Demo</button>
-      <button data-act="clear">Clear</button>
-    </div>
-    <input type="file" accept="application/json" hidden data-act="file">`;
+    <div class="pos-readout">
+      <span id="time" class="time">t = 0.00 s</span>
+      <span id="posText">—</span>
+      <div class="meter"><div id="posMeter" style="width:0%"></div></div>
+    </div>`;
 
-  const btn = (a: string) => host.querySelector<HTMLButtonElement>(`[data-act="${a}"]`)!;
-  const fileInput = host.querySelector<HTMLInputElement>('[data-act="file"]')!;
+  const $ = <T extends HTMLElement>(id: string): T => host.querySelector<T>(`#${id}`)!;
+  const run = $<HTMLButtonElement>("run");
+  const pause = $<HTMLButtonElement>("pause");
+  const step = $<HTMLButtonElement>("step");
+  const fileInput = document.getElementById("fileInput") as HTMLInputElement;
 
-  const setRunning = (running: boolean): void => {
-    store.setMode(running ? "run" : "edit");
-    btn("run").disabled = running;
-    btn("pause").disabled = !running;
-    btn("step").disabled = running;
-    for (const a of ["save", "load", "demo", "clear"]) btn(a).disabled = running;
+  const setRunMode = (on: boolean): void => {
+    store.setMode(on ? "run" : "edit");
+    for (const a of ["new", "open", "save", "demo"]) {
+      actions.querySelector<HTMLButtonElement>(`[data-act="${a}"]`)!.disabled = on;
+    }
+  };
+  const syncButtons = (): void => {
+    run.disabled = engine.running;
+    pause.disabled = !engine.running;
+    step.disabled = engine.running;
   };
 
-  btn("run").addEventListener("click", () => {
+  run.addEventListener("click", () => {
     if (store.mode === "edit") {
       engine.reset();
-      setRunning(true);
+      setRunMode(true);
     }
     engine.start();
+    syncButtons();
   });
-  btn("pause").addEventListener("click", () => {
+  pause.addEventListener("click", () => {
     engine.pause();
-    btn("run").disabled = false;
-    btn("step").disabled = false;
+    syncButtons();
   });
-  btn("step").addEventListener("click", () => {
+  step.addEventListener("click", () => {
     if (store.mode === "edit") {
       engine.reset();
-      setRunning(true);
+      setRunMode(true);
     }
     engine.pause();
-    btn("run").disabled = false;
     engine.tick(STEP_DT);
+    syncButtons();
   });
-  btn("reset").addEventListener("click", () => {
+  $("reset").addEventListener("click", () => {
     engine.reset();
-    setRunning(false);
+    setRunMode(false);
+    syncButtons();
   });
-
-  host.querySelector<HTMLSelectElement>('[data-act="speed"]')!.addEventListener("change", (e) => {
+  $<HTMLSelectElement>("speed").addEventListener("change", (e) => {
     engine.speed = Number((e.target as HTMLSelectElement).value);
   });
 
-  btn("save").addEventListener("click", () => {
+  const loadCircuit = (json: string): void => {
+    store.load(json);
+    engine.reset();
+    setRunMode(false);
+    syncButtons();
+    bus.emit("status:changed");
+  };
+
+  actions.querySelector('[data-act="new"]')!.addEventListener("click", () => {
+    if (store.circuit.components.length && !confirm("Discard the current circuit?")) return;
+    store.clear();
+    engine.reset();
+    bus.emit("status:changed");
+  });
+  actions.querySelector('[data-act="demo"]')!.addEventListener("click", () => loadCircuit(JSON.stringify(demoCircuit())));
+  actions.querySelector('[data-act="open"]')!.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files?.[0];
+    if (file) {
+      try {
+        loadCircuit(await file.text());
+      } catch (err) {
+        bus.emit("status:changed", { error: `Could not open file: ${String(err)}` });
+      }
+    }
+    fileInput.value = "";
+  });
+  actions.querySelector('[data-act="save"]')!.addEventListener("click", () => {
     const blob = new Blob([store.serialize()], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -77,28 +121,29 @@ export function mountControls(host: HTMLElement, store: Store, engine: Engine, b
     a.download = "circuit.json";
     a.click();
     URL.revokeObjectURL(url);
+    document.getElementById("saveStatus")!.textContent = "Downloaded";
   });
-  btn("load").addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    try {
-      store.load(await file.text());
-      engine.reset();
-      bus.emit("status:changed");
-    } catch (err) {
-      bus.emit("status:changed", { error: String(err) });
-    }
-    fileInput.value = "";
+
+  const updateReadout = (): void => {
+    const cyl =
+      (store.selection && store.getComponent(store.selection)?.type && getDef(store.getComponent(store.selection)!.type).cylinder
+        ? store.getComponent(store.selection)!
+        : undefined) ?? store.circuit.components.find((c) => getDef(c.type).cylinder);
+    const live = store.mode === "run";
+    const pos = cyl && live ? engine.runtime.cylinderPos.get(cyl.id) ?? 0 : 0;
+    $("time").textContent = `t = ${engine.runtime.time.toFixed(2)} s`;
+    $("posText").textContent = cyl ? `${cyl.label ?? cyl.id} ${live ? Math.round(pos * 100) + "%" : "—"}` : "—";
+    $("posMeter").style.width = `${pos * 100}%`;
+  };
+
+  bus.on("sim:tick", updateReadout);
+  bus.on("sim:reset", () => {
+    syncButtons();
+    updateReadout();
   });
-  btn("demo").addEventListener("click", () => {
-    store.load(JSON.stringify(demoCircuit()));
-    engine.reset();
-    bus.emit("status:changed");
-  });
-  btn("clear").addEventListener("click", () => {
-    store.clear();
-    engine.reset();
-    bus.emit("status:changed");
-  });
+  bus.on("sim:started", syncButtons);
+  bus.on("sim:paused", syncButtons);
+  bus.on("selection:changed", updateReadout);
+  bus.on("circuit:changed", updateReadout);
+  updateReadout();
 }

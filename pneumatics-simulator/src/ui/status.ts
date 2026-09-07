@@ -3,8 +3,15 @@ import type { Store } from "@/model/store.ts";
 import type { Engine } from "@/sim/engine.ts";
 import { validate } from "@/solver/validate.ts";
 
-/** Status / warnings panel (SDD §24). */
-export function mountStatus(host: HTMLElement, store: Store, engine: Engine, bus: EventBus): void {
+interface Args {
+  host: HTMLElement;
+  store: Store;
+  engine: Engine;
+  bus: EventBus;
+}
+
+/** Status / warnings strip (UI_DESIGN_BIBLE §11, §24). */
+export function mountStatus({ host, store, engine, bus }: Args): void {
   const render = (payload?: unknown): void => {
     const issues = validate(store.circuit);
     const warnings = engine.runtime.warnings;
@@ -12,17 +19,15 @@ export function mountStatus(host: HTMLElement, store: Store, engine: Engine, bus
 
     const items: string[] = [];
     if (err) items.push(`<li class="s-error">${escape(err)}</li>`);
-    for (const i of issues) {
-      items.push(`<li class="s-${i.severity}">${escape(i.message)}</li>`);
-    }
+    for (const i of issues) items.push(`<li class="s-${i.severity}">${escape(i.message)}</li>`);
     for (const w of warnings) items.push(`<li class="s-warning">${escape(w)}</li>`);
 
-    const summary =
+    const head =
       items.length === 0
-        ? `<span class="s-ok">No issues${store.mode === "run" ? " — running" : ""}.</span>`
-        : `<span class="s-count">${items.length} item${items.length === 1 ? "" : "s"}</span>`;
+        ? `<span class="s-ok">${store.mode === "run" ? "Simulation running — no issues." : "No issues."}</span>`
+        : `<span>${items.length} item${items.length === 1 ? "" : "s"} to review</span>`;
 
-    host.innerHTML = `<div class="status-head">${summary}</div><ul class="status-list">${items.join("")}</ul>`;
+    host.innerHTML = `${head}<ul class="status-list">${items.join("")}</ul>`;
   };
 
   bus.on("status:changed", render);

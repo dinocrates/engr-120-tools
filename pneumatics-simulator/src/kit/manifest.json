@@ -1,0 +1,802 @@
+{
+  "version": "1.1.0",
+  "coordinateSystem": "local SVG viewBox units; x right, y down",
+  "defaultView": "symbol",
+  "components": [
+    {
+      "id": "air-supply",
+      "label": "Air supply",
+      "category": "Supply & conditioning",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "1",
+          "x": 176,
+          "y": 64,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/air-supply--default.svg",
+          "component": "assets/components/air-supply--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication"
+    },
+    {
+      "id": "exhaust",
+      "label": "Exhaust",
+      "category": "Supply & conditioning",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "1",
+          "x": 96,
+          "y": 16,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/exhaust--default.svg",
+          "component": "assets/components/exhaust--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication"
+    },
+    {
+      "id": "valve-3-2-nc",
+      "label": "3/2 valve \u00b7 normally closed",
+      "category": "Directional valves",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "rest",
+      "ports": [
+        {
+          "id": "2",
+          "x": 108,
+          "y": 16,
+          "kind": "air"
+        },
+        {
+          "id": "1",
+          "x": 108,
+          "y": 112,
+          "kind": "air"
+        },
+        {
+          "id": "3",
+          "x": 132,
+          "y": 112,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "rest": {
+          "symbol": "assets/symbols/valve-3-2-nc--rest.svg",
+          "component": "assets/components/valve-3-2-nc--rest.svg"
+        },
+        "actuated": {
+          "symbol": "assets/symbols/valve-3-2-nc--actuated.svg",
+          "component": "assets/components/valve-3-2-nc--actuated.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "connections": {
+        "rest": [
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "actuated": [
+          [
+            "1",
+            "2"
+          ]
+        ]
+      },
+      "blocked": {
+        "rest": [
+          "1"
+        ],
+        "actuated": [
+          "3"
+        ]
+      }
+    },
+    {
+      "id": "valve-5-2",
+      "label": "5/2 valve \u00b7 spring return",
+      "category": "Directional valves",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "rest",
+      "ports": [
+        {
+          "id": "4",
+          "x": 108,
+          "y": 16,
+          "kind": "air"
+        },
+        {
+          "id": "2",
+          "x": 132,
+          "y": 16,
+          "kind": "air"
+        },
+        {
+          "id": "5",
+          "x": 100,
+          "y": 112,
+          "kind": "air"
+        },
+        {
+          "id": "1",
+          "x": 120,
+          "y": 112,
+          "kind": "air"
+        },
+        {
+          "id": "3",
+          "x": 140,
+          "y": 112,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "rest": {
+          "symbol": "assets/symbols/valve-5-2--rest.svg",
+          "component": "assets/components/valve-5-2--rest.svg"
+        },
+        "actuated": {
+          "symbol": "assets/symbols/valve-5-2--actuated.svg",
+          "component": "assets/components/valve-5-2--actuated.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "connections": {
+        "rest": [
+          [
+            "1",
+            "2"
+          ],
+          [
+            "4",
+            "5"
+          ]
+        ],
+        "actuated": [
+          [
+            "1",
+            "4"
+          ],
+          [
+            "2",
+            "3"
+          ]
+        ]
+      },
+      "blocked": {
+        "rest": [
+          "3"
+        ],
+        "actuated": [
+          "5"
+        ]
+      }
+    },
+    {
+      "id": "cylinder-single",
+      "label": "Single-acting cylinder",
+      "category": "Actuators",
+      "viewBox": [
+        0,
+        0,
+        256,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "cap",
+          "x": 40,
+          "y": 112,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/cylinder-single--default.svg",
+          "component": "assets/components/cylinder-single--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "animation": {
+        "field": "position01",
+        "min": 0,
+        "max": 1,
+        "travelViewBoxUnits": 88,
+        "movingParts": [
+          "piston"
+        ],
+        "note": "two reusable graphic pieces; procedural spring for single-acting variant"
+      },
+      "assembly": {
+        "symbol": {
+          "body": "assets/parts/actuator/symbol/cylinder-single-body.svg",
+          "piston": "assets/parts/actuator/symbol/piston-rod.svg",
+          "viewBox": [
+            0,
+            0,
+            256,
+            128
+          ],
+          "drawOrder": [
+            "piston",
+            "spring-if-single",
+            "body"
+          ],
+          "pistonTranslation": [
+            88,
+            0
+          ],
+          "spring": "procedural"
+        },
+        "component": {
+          "body": "assets/parts/actuator/component/cylinder-single-body.svg",
+          "piston": "assets/parts/actuator/component/piston-rod.svg",
+          "viewBox": [
+            0,
+            0,
+            256,
+            128
+          ],
+          "drawOrder": [
+            "piston",
+            "spring-if-single",
+            "body"
+          ],
+          "pistonTranslation": [
+            88,
+            0
+          ],
+          "spring": "procedural"
+        }
+      }
+    },
+    {
+      "id": "cylinder-double",
+      "label": "Double-acting cylinder",
+      "category": "Actuators",
+      "viewBox": [
+        0,
+        0,
+        256,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "cap",
+          "x": 40,
+          "y": 112,
+          "kind": "air"
+        },
+        {
+          "id": "rod",
+          "x": 152,
+          "y": 112,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/cylinder-double--default.svg",
+          "component": "assets/components/cylinder-double--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "animation": {
+        "field": "position01",
+        "min": 0,
+        "max": 1,
+        "travelViewBoxUnits": 88,
+        "movingParts": [
+          "piston"
+        ],
+        "note": "two reusable graphic pieces; procedural spring for single-acting variant"
+      },
+      "assembly": {
+        "symbol": {
+          "body": "assets/parts/actuator/symbol/cylinder-double-body.svg",
+          "piston": "assets/parts/actuator/symbol/piston-rod.svg",
+          "viewBox": [
+            0,
+            0,
+            256,
+            128
+          ],
+          "drawOrder": [
+            "piston",
+            "spring-if-single",
+            "body"
+          ],
+          "pistonTranslation": [
+            88,
+            0
+          ],
+          "spring": null
+        },
+        "component": {
+          "body": "assets/parts/actuator/component/cylinder-double-body.svg",
+          "piston": "assets/parts/actuator/component/piston-rod.svg",
+          "viewBox": [
+            0,
+            0,
+            256,
+            128
+          ],
+          "drawOrder": [
+            "piston",
+            "spring-if-single",
+            "body"
+          ],
+          "pistonTranslation": [
+            88,
+            0
+          ],
+          "spring": null
+        }
+      }
+    },
+    {
+      "id": "flow-control",
+      "label": "Adjustable flow control",
+      "category": "Flow control",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "1",
+          "x": 16,
+          "y": 64,
+          "kind": "air"
+        },
+        {
+          "id": "2",
+          "x": 176,
+          "y": 64,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/flow-control--default.svg",
+          "component": "assets/components/flow-control--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication"
+    },
+    {
+      "id": "flow-control-one-way",
+      "label": "One-way flow control",
+      "category": "Flow control",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "1",
+          "x": 16,
+          "y": 64,
+          "kind": "air"
+        },
+        {
+          "id": "2",
+          "x": 176,
+          "y": 64,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/flow-control-one-way--default.svg",
+          "component": "assets/components/flow-control-one-way--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "direction": {
+        "freeFlow": [
+          "1",
+          "2"
+        ],
+        "reverse": "adjustable restriction"
+      }
+    },
+    {
+      "id": "check-valve",
+      "label": "Check valve",
+      "category": "Flow control",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "1",
+          "x": 16,
+          "y": 64,
+          "kind": "air"
+        },
+        {
+          "id": "2",
+          "x": 176,
+          "y": 64,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/check-valve--default.svg",
+          "component": "assets/components/check-valve--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "direction": {
+        "freeFlow": [
+          "1",
+          "2"
+        ],
+        "reverse": "blocked"
+      }
+    },
+    {
+      "id": "regulator",
+      "label": "Pressure regulator",
+      "category": "Supply & conditioning",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "default",
+      "ports": [
+        {
+          "id": "1",
+          "x": 16,
+          "y": 64,
+          "kind": "air"
+        },
+        {
+          "id": "2",
+          "x": 176,
+          "y": 64,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "default": {
+          "symbol": "assets/symbols/regulator--default.svg",
+          "component": "assets/components/regulator--default.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication"
+    },
+    {
+      "id": "pressure-gauge",
+      "label": "Pressure gauge",
+      "category": "Measurement",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "p000",
+      "ports": [
+        {
+          "id": "1",
+          "x": 96,
+          "y": 112,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "p000": {
+          "symbol": "assets/symbols/pressure-gauge--p000.svg",
+          "component": "assets/components/pressure-gauge--p000.svg"
+        },
+        "p025": {
+          "symbol": "assets/symbols/pressure-gauge--p025.svg",
+          "component": "assets/components/pressure-gauge--p025.svg"
+        },
+        "p050": {
+          "symbol": "assets/symbols/pressure-gauge--p050.svg",
+          "component": "assets/components/pressure-gauge--p050.svg"
+        },
+        "p075": {
+          "symbol": "assets/symbols/pressure-gauge--p075.svg",
+          "component": "assets/components/pressure-gauge--p075.svg"
+        },
+        "p100": {
+          "symbol": "assets/symbols/pressure-gauge--p100.svg",
+          "component": "assets/components/pressure-gauge--p100.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "animation": {
+        "field": "pressure/rangeMax",
+        "needlePivot": [
+          96,
+          60
+        ],
+        "rotationDegrees": [
+          0,
+          270
+        ],
+        "note": "symbol remains static; hardware needle animates"
+      }
+    },
+    {
+      "id": "limit-valve",
+      "label": "3/2 roller limit valve \u00b7 NC",
+      "category": "Directional valves",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "rest",
+      "ports": [
+        {
+          "id": "2",
+          "x": 108,
+          "y": 16,
+          "kind": "air"
+        },
+        {
+          "id": "1",
+          "x": 108,
+          "y": 112,
+          "kind": "air"
+        },
+        {
+          "id": "3",
+          "x": 132,
+          "y": 112,
+          "kind": "air"
+        }
+      ],
+      "assets": {
+        "rest": {
+          "symbol": "assets/symbols/limit-valve--rest.svg",
+          "component": "assets/components/limit-valve--rest.svg"
+        },
+        "actuated": {
+          "symbol": "assets/symbols/limit-valve--actuated.svg",
+          "component": "assets/components/limit-valve--actuated.svg"
+        }
+      },
+      "symbolStatus": "teaching schematic; review before standards-controlled publication",
+      "connections": {
+        "rest": [
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "actuated": [
+          [
+            "1",
+            "2"
+          ]
+        ]
+      },
+      "blocked": {
+        "rest": [
+          "1"
+        ],
+        "actuated": [
+          "3"
+        ]
+      }
+    },
+    {
+      "id": "pushbutton",
+      "label": "Momentary command button",
+      "category": "Controls",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "rest",
+      "ports": [
+        {
+          "id": "out",
+          "x": 96,
+          "y": 112,
+          "kind": "signal"
+        }
+      ],
+      "assets": {
+        "rest": {
+          "symbol": "assets/symbols/pushbutton--rest.svg",
+          "component": "assets/components/pushbutton--rest.svg"
+        },
+        "actuated": {
+          "symbol": "assets/symbols/pushbutton--actuated.svg",
+          "component": "assets/components/pushbutton--actuated.svg"
+        }
+      },
+      "symbolStatus": "functional control glyph; not an electrical wiring symbol"
+    },
+    {
+      "id": "roller-switch",
+      "label": "Roller limit switch",
+      "category": "Sensors",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "rest",
+      "ports": [
+        {
+          "id": "out",
+          "x": 96,
+          "y": 112,
+          "kind": "signal"
+        }
+      ],
+      "assets": {
+        "rest": {
+          "symbol": "assets/symbols/roller-switch--rest.svg",
+          "component": "assets/components/roller-switch--rest.svg"
+        },
+        "actuated": {
+          "symbol": "assets/symbols/roller-switch--actuated.svg",
+          "component": "assets/components/roller-switch--actuated.svg"
+        }
+      },
+      "symbolStatus": "functional control glyph; not an electrical wiring symbol"
+    },
+    {
+      "id": "proximity-sensor",
+      "label": "Proximity sensor",
+      "category": "Sensors",
+      "viewBox": [
+        0,
+        0,
+        192,
+        128
+      ],
+      "defaultState": "rest",
+      "ports": [
+        {
+          "id": "out",
+          "x": 96,
+          "y": 112,
+          "kind": "signal"
+        }
+      ],
+      "assets": {
+        "rest": {
+          "symbol": "assets/symbols/proximity-sensor--rest.svg",
+          "component": "assets/components/proximity-sensor--rest.svg"
+        },
+        "actuated": {
+          "symbol": "assets/symbols/proximity-sensor--actuated.svg",
+          "component": "assets/components/proximity-sensor--actuated.svg"
+        }
+      },
+      "symbolStatus": "functional control glyph; not an electrical wiring symbol"
+    }
+  ],
+  "icons": {
+    "new": "assets/icons/new.svg",
+    "open": "assets/icons/open.svg",
+    "save": "assets/icons/save.svg",
+    "undo": "assets/icons/undo.svg",
+    "redo": "assets/icons/redo.svg",
+    "run": "assets/icons/run.svg",
+    "pause": "assets/icons/pause.svg",
+    "step": "assets/icons/step.svg",
+    "reset": "assets/icons/reset.svg",
+    "select": "assets/icons/select.svg",
+    "wire": "assets/icons/wire.svg",
+    "pan": "assets/icons/pan.svg",
+    "zoom-in": "assets/icons/zoom-in.svg",
+    "zoom-out": "assets/icons/zoom-out.svg",
+    "fit": "assets/icons/fit.svg",
+    "delete": "assets/icons/delete.svg",
+    "rotate": "assets/icons/rotate.svg",
+    "help": "assets/icons/help.svg",
+    "warning": "assets/icons/warning.svg",
+    "check": "assets/icons/check.svg",
+    "search": "assets/icons/search.svg",
+    "close": "assets/icons/close.svg",
+    "book": "assets/icons/book.svg",
+    "settings": "assets/icons/settings.svg",
+    "download": "assets/icons/download.svg",
+    "pressure": "assets/icons/pressure.svg",
+    "signal": "assets/icons/signal.svg",
+    "trapped": "assets/icons/trapped.svg"
+  },
+  "tubing": {
+    "states": {
+      "inactive": {
+        "color": "#738096",
+        "dash": ""
+      },
+      "pressurized": {
+        "color": "#D93846",
+        "dash": ""
+      },
+      "exhaust": {
+        "color": "#1672C4",
+        "dash": ""
+      },
+      "trapped": {
+        "color": "#A96A05",
+        "dash": "8 4"
+      },
+      "unknown": {
+        "color": "#6D6682",
+        "dash": "3 5"
+      }
+    },
+    "shapes": [
+      "straight",
+      "elbow",
+      "tee",
+      "junction",
+      "crossing",
+      "end-cap"
+    ],
+    "note": "reference tiles; route production tubing as continuous SVG paths"
+  },
+  "brand": {
+    "header": "assets/brand/header-lockup.svg",
+    "compact": "assets/brand/wordmark-compact.svg",
+    "displayFont": "assets/fonts/pneu-pixel.ttf"
+  }
+}

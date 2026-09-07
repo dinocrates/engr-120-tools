@@ -5,6 +5,7 @@ export type SimEventType =
   | "selection:changed"
   | "mode:changed"
   | "pending:changed"
+  | "view:changed"
   | "sim:reset"
   | "sim:started"
   | "sim:paused"
