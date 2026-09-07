@@ -96,32 +96,47 @@ function explainComponent(circuit: Circuit, rt: RuntimeState, id: string): Expla
     };
   }
 
-  if (def.signal?.role === "sink") {
+  if (def.signal?.role === "source" && def.signal.port) {
+    const on = rt.supplyOn.get(id) ?? true;
+    const v = Number(comp.params.volts ?? comp.params.amps ?? 24);
+    return {
+      headline: on ? `${name} is on (${v} V).` : `${name} is switched off.`,
+      steps: [
+        on
+          ? "Its output line is live; anything reached through closed contacts is energised."
+          : "No control power. Switch it on in the control panel.",
+      ],
+    };
+  }
+
+  if (def.signal?.role === "contact" && def.signal.inPort && def.signal.outPort) {
+    const raw =
+      def.signal.closedBy === "cylinder"
+        ? rt.sensorTripped.get(id) ?? false
+        : (rt.inputs.get(id) ?? false) || (rt.latched.get(id) ?? false);
+    const closed = raw !== Boolean(def.signal.normallyClosed);
+    const outLive = rt.signalStates.get(nodeKey(id, def.signal.outPort)) ?? false;
+    const steps: string[] = [];
+    if (def.signal.closedBy === "cylinder") {
+      const cyl = String(comp.params.triggerCylinder || "its cylinder");
+      const at = Number(comp.params.triggerAt ?? 95);
+      const now = Math.round((rt.cylinderPos.get(String(comp.params.triggerCylinder || "")) ?? 0) * 100);
+      steps.push(
+        raw ? `${cyl} has reached ${now}% (trigger ${at}%), pressing the roller.` : `${cyl} is at ${now}%, short of the ${at}% trigger.`,
+      );
+    } else {
+      steps.push(raw ? "It is being pressed." : "It is released.");
+    }
+    steps.push(closed ? "The contact is closed, passing the signal through." : "The contact is open, so nothing passes.");
+    steps.push(outLive ? "Its output is live." : "Its output is off — no power on the input side, or the contact is open.");
+    return { headline: `${name} contact is ${closed ? "closed" : "open"}.`, steps };
+  }
+
+  if (def.signal?.role === "sink" && def.signal.port) {
     const on = rt.signalStates.get(nodeKey(id, def.signal.port)) ?? false;
     return {
       headline: `${name} is ${on ? "lit" : "off"}.`,
       steps: [on ? "Its signal line is energised." : "Its signal line has no power."],
-    };
-  }
-
-  if (def.signal?.role === "source") {
-    const on = rt.signalStates.get(nodeKey(id, def.signal.port)) ?? false;
-    if (def.signal.trigger === "manual") {
-      return {
-        headline: `${name} is ${on ? "pressed" : "released"}.`,
-        steps: [on ? "It is energising its output signal." : "Its output signal is off."],
-      };
-    }
-    const cyl = String(comp.params.triggerCylinder || "its cylinder");
-    const at = Number(comp.params.triggerAt ?? 95);
-    const now = Math.round((rt.cylinderPos.get(String(comp.params.triggerCylinder || "")) ?? 0) * 100);
-    return {
-      headline: `${name} is ${on ? "triggered" : "clear"}.`,
-      steps: [
-        on
-          ? `${cyl} has reached ${now}% (trigger ${at}%), so it energises its output signal.`
-          : `${cyl} is at ${now}%, short of the ${at}% trigger.`,
-      ],
     };
   }
 

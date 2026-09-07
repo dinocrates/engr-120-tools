@@ -33,7 +33,9 @@ export function mountControlPanel({ host, store, engine, bus }: Args): void {
       return;
     }
 
-    const supplies = store.circuit.components.filter((c) => getDef(c.type).supply);
+    const supplies = store.circuit.components.filter(
+      (c) => getDef(c.type).supply || getDef(c.type).signal?.role === "source",
+    );
     const actuators = store.circuit.components.filter((c) => isManuallyOperable(getDef(c.type)));
     const sensors = store.circuit.components.filter((c) => getDef(c.type).trigger);
     controls = [
@@ -86,8 +88,9 @@ export function mountControlPanel({ host, store, engine, bus }: Args): void {
       const label = btn.querySelector(".cp-state")!;
       if (kind === "supply") {
         const on = rt.supplyOn.get(id) ?? true;
+        const word = btn.dataset.word ?? "Air";
         setToggle(btn, on ? "on" : "off");
-        label.textContent = on ? "Air ON" : "Air OFF";
+        label.textContent = `${word} ${on ? "ON" : "OFF"}`;
       } else {
         const latched = rt.latched.get(id) ?? false;
         const held = (rt.inputs.get(id) ?? false) && !latched;
@@ -111,26 +114,29 @@ function setToggle(btn: HTMLButtonElement, state: "on" | "off" | "held"): void {
   btn.setAttribute("aria-pressed", String(state !== "off"));
 }
 
-function supplyRow(c: { id: string; label?: string; params: Record<string, unknown> }): string {
-  return row(c.id, "supply", c.label ?? "Air supply", `${Number(c.params.pressure ?? 600)} kPa supply`, "Air ON");
+function supplyRow(c: { id: string; type: string; label?: string; params: Record<string, unknown> }): string {
+  const dc = getDef(c.type).signal?.role === "source";
+  const word = dc ? "Power" : "Air";
+  const sub = dc ? `${Number(c.params.volts ?? 24)} V control supply` : `${Number(c.params.pressure ?? 600)} kPa supply`;
+  return row(c.id, "supply", c.label ?? (dc ? "Power supply" : "Air supply"), sub, `${word} ON`, word);
 }
 
 function actuatorRow(c: { id: string; type: string; label?: string; params: Record<string, unknown> }): string {
   const def = getDef(c.type);
-  const subtitle = def.signal?.trigger === "manual"
-    ? "signal button · momentary"
+  const subtitle = def.signal?.closedBy === "manual"
+    ? "signal contact · momentary"
     : `${def.actuation!.control} · ${c.params.return ?? "spring"} return · momentary`;
   return row(c.id, "actuator", c.label ?? def.name, subtitle, "Actuate");
 }
 
-function row(id: string, kind: ControlKind, title: string, subtitle: string, state: string): string {
+function row(id: string, kind: ControlKind, title: string, subtitle: string, state: string, word?: string): string {
   return `
     <div class="cp-row">
       <div class="cp-meta">
         <span class="cp-title">${escapeHtml(title)}</span>
         <span class="cp-sub">${escapeHtml(subtitle)}</span>
       </div>
-      <button class="cp-toggle" type="button" data-cp="${id}" data-kind="${kind}" aria-pressed="false">
+      <button class="cp-toggle" type="button" data-cp="${id}" data-kind="${kind}"${word ? ` data-word="${word}"` : ""} aria-pressed="false">
         <span class="cp-dot"></span><span class="cp-state">${state}</span>
       </button>
     </div>`;

@@ -70,12 +70,19 @@ export interface ComponentDef {
   /** mechanically-triggered by a cylinder reaching a position (limit valve,
    *  roller switch, proximity sensor). Instance params say which cylinder. */
   trigger?: true;
-  /** control-signal role (electro-pneumatic layer). */
+  /** control-signal role (electro-pneumatic layer, single-rail DC model). */
   signal?: {
-    role: "source" | "sink";
-    port: string;
-    /** source: what makes it active */
-    trigger?: "manual" | "cylinder";
+    /** source — a DC supply; contact — pass-through switch; sink — coil / lamp */
+    role: "source" | "contact" | "sink";
+    /** source / sink: the single terminal */
+    port?: string;
+    /** contact: the two terminals it bridges when closed */
+    inPort?: string;
+    outPort?: string;
+    /** contact: what closes it */
+    closedBy?: "manual" | "cylinder";
+    /** contact: invert (normally-closed) */
+    normallyClosed?: boolean;
   };
   cylinder?: {
     capPort: string;
@@ -149,17 +156,25 @@ const BEHAVIOURS: Record<string, Behaviour> = {
     checkValve: { inPort: "1", outPort: "2" },
   },
 
-  /* electro-pneumatic layer (UI_DESIGN_BIBLE §7) */
+  /* electro-pneumatic layer — single-rail DC model (UI_DESIGN_BIBLE §7) */
+  "dc-supply": {
+    signal: { role: "source", port: "out" },
+    defaultParams: { volts: 24 },
+  },
+  "current-source": {
+    signal: { role: "source", port: "out" },
+    defaultParams: { amps: 0.5 },
+  },
   pushbutton: {
-    signal: { role: "source", port: "out", trigger: "manual" },
+    signal: { role: "contact", inPort: "in", outPort: "out", closedBy: "manual" },
   },
   "roller-switch": {
-    signal: { role: "source", port: "out", trigger: "cylinder" },
+    signal: { role: "contact", inPort: "in", outPort: "out", closedBy: "cylinder" },
     trigger: true,
     defaultParams: { triggerAt: 95, triggerEdge: "extend" },
   },
   "proximity-sensor": {
-    signal: { role: "source", port: "out", trigger: "cylinder" },
+    signal: { role: "contact", inPort: "in", outPort: "out", closedBy: "cylinder" },
     trigger: true,
     defaultParams: { triggerAt: 95, triggerEdge: "extend" },
   },
@@ -214,6 +229,8 @@ export const LIBRARY_ORDER: string[] = [
   "solenoid-3-2",
   "solenoid-5-2",
   "solenoid-5-2-dd",
+  "dc-supply",
+  "current-source",
   "pushbutton",
   "roller-switch",
   "proximity-sensor",
@@ -225,7 +242,7 @@ export function isManuallyOperable(def: ComponentDef): boolean {
   return (
     def.actuation?.kind === "momentary" ||
     def.actuation?.kind === "detent" ||
-    def.signal?.trigger === "manual"
+    def.signal?.closedBy === "manual"
   );
 }
 

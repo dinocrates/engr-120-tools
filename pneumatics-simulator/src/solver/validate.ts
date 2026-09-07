@@ -24,6 +24,13 @@ export function validate(circuit: Circuit): Issue[] {
   if (circuit.components.length > 0 && !circuit.components.some((c) => getDef(c.type).supply)) {
     issues.push({ severity: "error", message: "Circuit has no air supply." });
   }
+  const hasSolenoidOrSignal = circuit.components.some(
+    (c) => getDef(c.type).actuation?.kind === "solenoid" || getDef(c.type).signal,
+  );
+  const hasPower = circuit.components.some((c) => getDef(c.type).signal?.role === "source");
+  if (hasSolenoidOrSignal && !hasPower) {
+    issues.push({ severity: "warning", message: "Control circuit has no power supply." });
+  }
 
   for (const c of circuit.components) {
     const name = c.label || c.type;
@@ -62,7 +69,30 @@ export function validate(circuit: Circuit): Issue[] {
           }
         }
       }
+      if (def.actuation?.kind === "solenoid") {
+        for (const p of [def.actuation.signalActuate, def.actuation.signalRest].filter(Boolean) as string[]) {
+          if (!isConn(c.id, p)) {
+            issues.push({
+              severity: "warning",
+              message: `${name}: solenoid ${p} is not wired — it can't be energised.`,
+              component: c.id,
+            });
+          }
+        }
+      }
     }
+
+    if (def.signal?.role === "contact") {
+      for (const p of [def.signal.inPort, def.signal.outPort].filter(Boolean) as string[]) {
+        if (!isConn(c.id, p)) {
+          issues.push({ severity: "warning", message: `${name}: terminal ${p} is not wired.`, component: c.id });
+        }
+      }
+    }
+    if (def.signal?.role === "sink" && def.signal.port && !isConn(c.id, def.signal.port)) {
+      issues.push({ severity: "warning", message: `${name}: not wired to the control circuit.`, component: c.id });
+    }
+
 
     if (def.trigger && !c.params.triggerCylinder) {
       issues.push({

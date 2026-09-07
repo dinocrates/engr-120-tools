@@ -32,9 +32,9 @@ shifts, pressure propagates, the cylinder extends. Release and it retracts.
 | Pneumatic set: supply, exhaust, 3/2 & 5/2 valves, 5/2 double-pilot, limit valve, one-way flow control, check valve, single/double cylinder | ✅ |
 | Self-sequencing — limit valve tripped by cylinder position, pilot-shifted bistable valve, auto-cycle (UI_DESIGN_BIBLE §38) | ✅ |
 | Flow control (speed multiplier, §16) · check valve (one-way, load-holding, §17) | ✅ |
-| **Electro-pneumatics** — signal graph, electrical pushbutton, roller switch & proximity sensor, single/double-solenoid valves, signal lamp, distinct signal wiring (§7) | ✅ |
+| **Electro-pneumatics** — DC/current voltage source, pass-through contacts (pushbutton, roller switch, proximity sensor), single/double-solenoid valves, signal lamp, distinct signal wiring, power on/off (§7) | ✅ |
 | Camera pan / zoom / fit, undo / redo, unknown-type placeholder, deeper validation | ✅ |
-| Relay logic (coil + NO/NC contacts), ladder-diagram view, PLC | ⬜ next electro phases |
+| Relay logic, ladder-diagram view, PLC | ⬜ deliberately out of scope for now — the electrical layer stays "source + contacts + solenoid" |
 | Regulator, gauge (need numeric pressure) | ⬜ later |
 | Tube crossing jump-over bridges, branch junctions, flow chevrons | ⬜ not yet |
 | Full canvas accessibility (component/connection lists, live-region announcements) | ⬜ partial |

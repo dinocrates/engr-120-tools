@@ -69,7 +69,7 @@ function freshRuntime(circuit: Circuit): RuntimeState {
     const def = getDef(c.type);
     if (def.valve) rt.valvePositions.set(c.id, def.valve.restPosition);
     if (def.trigger) rt.sensorTripped.set(c.id, false);
-    if (def.supply) rt.supplyOn.set(c.id, true);
+    if (def.supply || def.signal?.role === "source") rt.supplyOn.set(c.id, true);
     if (def.cylinder) {
       rt.cylinderPos.set(c.id, 0);
       rt.cylinderDir.set(c.id, "holding");
@@ -159,16 +159,21 @@ export class Engine {
     for (let i = 0; i < MAX_LOGICAL_ITERATIONS; i++) {
       let changed = false;
 
-      // Phase 1.5 — control signals (electro-pneumatic layer). A manual signal
-      // source is active while held or latched; a sensor source follows its
-      // trip state.
+      // Phase 1.5 — control signals (electro-pneumatic layer). A manual contact
+      // is closed while held or latched; a sensor contact follows its trip
+      // state; the net is live only if it reaches an on DC supply.
       const manualOn = new Map<string, boolean>();
       for (const c of circuit.components) {
-        if (getDef(c.type).signal?.trigger === "manual") {
+        if (getDef(c.type).signal?.closedBy === "manual") {
           manualOn.set(c.id, (rt.inputs.get(c.id) ?? false) || (rt.latched.get(c.id) ?? false));
         }
       }
-      rt.signalStates = solveSignals({ circuit, manualOn, sensorOn: rt.sensorTripped });
+      rt.signalStates = solveSignals({
+        circuit,
+        manualOn,
+        sensorOn: rt.sensorTripped,
+        supplyOn: rt.supplyOn,
+      });
 
       // Phase 2 — determine each valve's spool position from its actuation.
       for (const c of circuit.components) {

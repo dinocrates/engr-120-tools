@@ -309,8 +309,14 @@ export class Renderer {
           ? rt.valvePositions.get(inst.id) ?? def.valve.restPosition
           : def.valve.restPosition;
         stateName = def.valve.positions[idx]?.name ?? def.defaultState;
-      } else if (def.signal?.role === "sink") {
+      } else if (def.signal?.role === "sink" && def.signal.port) {
         stateName = live && rt.signalStates.get(nodeKey(inst.id, def.signal.port)) ? "on" : "off";
+      } else if (def.signal?.role === "contact") {
+        const closed =
+          def.signal.closedBy === "cylinder"
+            ? !!rt.sensorTripped.get(inst.id)
+            : !!rt.inputs.get(inst.id) || !!rt.latched.get(inst.id);
+        stateName = live && closed !== Boolean(def.signal.normallyClosed) ? "actuated" : "rest";
       }
       const key = `${this.view}|${stateName}`;
       if (this.renderKey.get(inst.id) !== key) {
@@ -323,7 +329,8 @@ export class Renderer {
       const solOn =
         !!def.actuation?.signalActuate &&
         !!rt.signalStates.get(nodeKey(inst.id, def.actuation.signalActuate));
-      g.classList.toggle("input-off", live && !!def.supply && !(rt.supplyOn.get(inst.id) ?? true));
+      const isSource = !!def.supply || def.signal?.role === "source";
+      g.classList.toggle("input-off", live && isSource && !(rt.supplyOn.get(inst.id) ?? true));
       g.classList.toggle(
         "latched-on",
         live && (!!rt.latched.get(inst.id) || !!rt.sensorTripped.get(inst.id) || solOn),

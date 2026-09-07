@@ -109,23 +109,26 @@ function electroCircuit(): Circuit {
   return {
     version: 1,
     components: [
-      comp("C1", "cylinder-double", 280, 24, { stroke: 200, extendSpeed: 0.45, retractSpeed: 0.45 }),
-      comp("V1", "solenoid-5-2-dd", 336, 296),
-      comp("PB1", "pushbutton", 24, 248),
-      comp("RS1", "roller-switch", 632, 248, { triggerCylinder: "C1", triggerAt: 92, triggerEdge: "extend" }),
-      comp("LMP1", "signal-lamp", 748, 128),
+      comp("C1", "cylinder-double", 260, 24, { stroke: 200, extendSpeed: 0.45, retractSpeed: 0.45 }),
+      comp("V1", "solenoid-5-2-dd", 320, 300),
+      comp("DC1", "dc-supply", 24, 128, { volts: 24 }),
+      comp("PB1", "pushbutton", 24, 296),
+      comp("RS1", "roller-switch", 632, 296, { triggerCylinder: "C1", triggerAt: 92, triggerEdge: "extend" }),
+      comp("LMP1", "signal-lamp", 736, 120),
       comp("SUP1", "air-supply", 56, 456, { pressure: 600 }),
-      comp("EXV", "exhaust", 372, 476),
+      comp("EXV", "exhaust", 356, 476),
     ],
     connections: [
-      wire("e1", "SUP1", "1", "V1", "1"),
-      wire("e2", "V1", "4", "C1", "cap"),
-      wire("e3", "V1", "2", "C1", "rod"),
-      wire("e4", "V1", "5", "EXV", "1"),
-      wire("e5", "V1", "3", "EXV", "1"),
-      wire("e6", "PB1", "out", "V1", "a"),
-      wire("e7", "RS1", "out", "V1", "b"),
-      wire("e8", "RS1", "out", "LMP1", "in"),
+      wire("a1", "SUP1", "1", "V1", "1"),
+      wire("a2", "V1", "4", "C1", "cap"),
+      wire("a3", "V1", "2", "C1", "rod"),
+      wire("a4", "V1", "5", "EXV", "1"),
+      wire("a5", "V1", "3", "EXV", "1"),
+      wire("s1", "DC1", "out", "PB1", "in"),
+      wire("s2", "PB1", "out", "V1", "a"),
+      wire("s3", "DC1", "out", "RS1", "in"),
+      wire("s4", "RS1", "out", "V1", "b"),
+      wire("s5", "RS1", "out", "LMP1", "in"),
     ],
   };
 }
@@ -134,7 +137,7 @@ export const DEMOS: Demo[] = [
   { id: "basic", name: "Basic — manual 5/2 valve", circuit: basicCircuit },
   { id: "speed", name: "Speed control — flow control valve", circuit: speedControlCircuit },
   { id: "autocycle", name: "Auto-cycle — pushbutton + limit valve", circuit: autoCycleCircuit },
-  { id: "electro", name: "Electro-pneumatic — solenoid + roller switch", circuit: electroCircuit },
+  { id: "electro", name: "Electro-pneumatic — DC supply, solenoid, roller switch", circuit: electroCircuit },
 ];
 
 /** Loaded on startup. */

@@ -1,13 +1,14 @@
 /**
  * Control-signal solver (SDD §8, §32; UI_DESIGN_BIBLE §7, §10).
  *
- * A parallel, boolean version of the pneumatic solver: signal ports are
- * partitioned into nets, and a net is *energised* if any member is an active
- * signal source (a pressed electrical button, a tripped sensor). Solenoid coils
- * and lamps read the net state.
+ * A boolean version of the pneumatic solver. Single-rail model: a DC supply has
+ * one output terminal (24 V present), the common 0 V is implied. A net is
+ * *energised* if it connects — through closed contacts — back to an on supply.
  *
- * No explicit power rail — a source component IS the supply while it's active
- * (implicit power model).
+ * - source  : DC / current supply. Its output net is live while the supply is on.
+ * - contact : pushbutton, roller switch, proximity sensor. Passes the signal
+ *             `in` <-> `out` while closed (pressed or cylinder-triggered).
+ * - sink    : solenoid coil, lamp. Reads whether its net is energised.
  */
 
 import { getDef } from "@/components/defs.ts";
@@ -17,10 +18,12 @@ import { UnionFind } from "./unionfind.ts";
 
 export interface SignalInput {
   circuit: Circuit;
-  /** componentId -> manual signal source held on (electrical pushbutton) */
+  /** componentId -> a manual contact is held closed (pushbutton pressed) */
   manualOn: Map<string, boolean>;
-  /** componentId -> sensor tripped (roller switch / proximity sensor) */
+  /** componentId -> a sensor contact is closed (roller switch / proximity tripped) */
   sensorOn: Map<string, boolean>;
+  /** supply componentId -> switched on (shared with the pneumatic supply map) */
+  supplyOn: Map<string, boolean>;
 }
 
 /** "component:port" -> energised */
@@ -32,7 +35,7 @@ function isSignalPort(circuit: Circuit, end: ConnectionEnd): boolean {
   return getDef(comp.type).ports.find((p) => p.id === end.port)?.kind === "signal";
 }
 
-export function solveSignals({ circuit, manualOn, sensorOn }: SignalInput): SignalStates {
+export function solveSignals({ circuit, manualOn, sensorOn, supplyOn }: SignalInput): SignalStates {
   const uf = new UnionFind();
 
   for (const c of circuit.components) {
@@ -41,18 +44,29 @@ export function solveSignals({ circuit, manualOn, sensorOn }: SignalInput): Sign
     }
   }
 
+  // external signal wiring
   for (const conn of circuit.connections) {
     if (isSignalPort(circuit, conn.from) && isSignalPort(circuit, conn.to)) {
       uf.union(nodeKey(conn.from.component, conn.from.port), nodeKey(conn.to.component, conn.to.port));
     }
   }
 
-  const energisedRoots = new Set<string>();
+  // closed contacts pass the signal through
   for (const c of circuit.components) {
     const sig = getDef(c.type).signal;
-    if (sig?.role !== "source") continue;
-    const active = sig.trigger === "manual" ? (manualOn.get(c.id) ?? false) : (sensorOn.get(c.id) ?? false);
-    if (active) energisedRoots.add(uf.find(nodeKey(c.id, sig.port)));
+    if (sig?.role !== "contact" || !sig.inPort || !sig.outPort) continue;
+    const closed = sig.closedBy === "cylinder" ? (sensorOn.get(c.id) ?? false) : (manualOn.get(c.id) ?? false);
+    if (closed !== Boolean(sig.normallyClosed)) {
+      uf.union(nodeKey(c.id, sig.inPort), nodeKey(c.id, sig.outPort));
+    }
+  }
+
+  // live nets: those touching an on supply's output
+  const liveRoots = new Set<string>();
+  for (const c of circuit.components) {
+    const sig = getDef(c.type).signal;
+    if (sig?.role !== "source" || !sig.port) continue;
+    if (supplyOn.get(c.id) ?? true) liveRoots.add(uf.find(nodeKey(c.id, sig.port)));
   }
 
   const out: SignalStates = new Map();
@@ -60,7 +74,7 @@ export function solveSignals({ circuit, manualOn, sensorOn }: SignalInput): Sign
     for (const p of getDef(c.type).ports) {
       if (p.kind !== "signal") continue;
       const key = nodeKey(c.id, p.id);
-      out.set(key, energisedRoots.has(uf.find(key)));
+      out.set(key, liveRoots.has(uf.find(key)));
     }
   }
   return out;

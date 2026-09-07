@@ -70,13 +70,52 @@ const base = raw as unknown as KitManifest;
 
 /**
  * Local component additions — kept here rather than edited into the vendored
- * `manifest.json` so kit updates stay a clean drop-in. Art for these lives
- * under `assets/` like everything else (generated from the base valve art).
+ * `manifest.json` so kit updates stay a clean drop-in. Entries here with the
+ * same id as a base component override it (byId keeps the last). Art lives under
+ * `assets/` like everything else (mostly generated from the base valve art).
  */
 const AIR = "air" as const;
 const SIG = "signal" as const;
 
+const statusTeach = "teaching schematic; review before standards-controlled publication";
+const glyphAssets = (id: string, states: string[]): KitComponent["assets"] =>
+  Object.fromEntries(
+    states.map((s) => [s, { symbol: `assets/symbols/${id}--${s}.svg`, component: `assets/components/${id}--${s}.svg` }]),
+  );
+
+/** electro-pneumatic: a signal source (single-rail DC supply). */
+const source = (id: string, label: string): KitComponent => ({
+  id,
+  label,
+  category: "Electrical",
+  viewBox: [0, 0, 192, 128],
+  defaultState: "default",
+  ports: [{ id: "out", x: 96, y: 112, kind: SIG }],
+  assets: glyphAssets(id, ["default"]),
+  symbolStatus: statusTeach,
+});
+
+/** electro-pneumatic: a pass-through contact (in -> out when closed). */
+const contact = (id: string, label: string, category: string): KitComponent => ({
+  id,
+  label,
+  category,
+  viewBox: [0, 0, 192, 128],
+  defaultState: "rest",
+  ports: [
+    { id: "in", x: 96, y: 12, kind: SIG },
+    { id: "out", x: 96, y: 112, kind: SIG },
+  ],
+  assets: glyphAssets(id, ["rest", "actuated"]),
+  symbolStatus: "functional control glyph; not an electrical wiring symbol",
+});
+
 const EXTRA_COMPONENTS: KitComponent[] = [
+  source("dc-supply", "DC voltage source"),
+  source("current-source", "DC current source"),
+  contact("pushbutton", "Pushbutton contact", "Electrical"),
+  contact("roller-switch", "Roller switch contact", "Sensors"),
+  contact("proximity-sensor", "Proximity sensor contact", "Sensors"),
   {
     id: "valve-5-2-pp",
     label: "5/2 valve · double pilot",
