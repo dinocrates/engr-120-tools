@@ -208,6 +208,15 @@ header#brand img.header-lockup { cursor: default; }
 
 .wire-rubber { stroke: var(--cobalt-600); stroke-width: 3; fill: none; stroke-dasharray: 5 4; pointer-events: none; }
 
+/* control-signal wires (electro-pneumatic layer, UI_DESIGN_BIBLE §10) */
+.wire-sig .wire-halo { stroke-width: 6; }
+.wire-sig .wire-line { stroke-width: 2.5; stroke-dasharray: 6 4; }
+.wire-sig.sig-idle .wire-line { stroke: var(--unknown); }
+.wire-sig.sig-off .wire-line { stroke: var(--unknown); }
+.wire-sig.sig-on .wire-line { stroke: var(--cobalt-600); stroke-width: 3; animation: flow 0.5s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -10; } }
+@media (prefers-reduced-motion: reduce) { .wire-sig.sig-on .wire-line { animation: none; } }
+
 /* ------------------------------------------------------------- library */
 
 .eyebrow { display: block; }

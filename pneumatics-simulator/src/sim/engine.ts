@@ -11,6 +11,7 @@ import type { EventBus } from "@/events/bus.ts";
 import { nodeKey } from "@/model/geometry.ts";
 import type { Circuit } from "@/model/types.ts";
 import { solve, type PressureState } from "@/solver/solver.ts";
+import { solveSignals } from "@/solver/signals.ts";
 
 const MAX_LOGICAL_ITERATIONS = 20; // SDD §11 phase 8
 
@@ -28,15 +29,19 @@ export interface RuntimeState {
   /** componentId -> control-panel latch (click on / click off) */
   latched: Map<string, boolean>;
   /** limit-valve componentId -> tripped by its linked cylinder (SDD §11 phase 7) */
-  limitTripped: Map<string, boolean>;
+  sensorTripped: Map<string, boolean>;
   /** supply componentId -> air turned on (default true) */
   supplyOn: Map<string, boolean>;
   /** "component:port" -> pressure state */
   portStates: Map<string, PressureState>;
   /** "component:port" -> region id (for path queries like flow control) */
   regionOf: Map<string, number>;
+  /** "component:port" -> control signal energised (electro-pneumatic layer) */
+  signalStates: Map<string, boolean>;
   /** connectionId -> pressure state */
   connStates: Map<string, PressureState>;
+  /** connectionId -> signal energised (for signal-wire rendering) */
+  signalConnStates: Map<string, boolean>;
   /** check-valve componentId -> currently open */
   checkOpen: Map<string, boolean>;
   warnings: string[];
@@ -50,18 +55,20 @@ function freshRuntime(circuit: Circuit): RuntimeState {
     cylinderDir: new Map(),
     inputs: new Map(),
     latched: new Map(),
-    limitTripped: new Map(),
+    sensorTripped: new Map(),
     supplyOn: new Map(),
     portStates: new Map(),
     regionOf: new Map(),
+    signalStates: new Map(),
     connStates: new Map(),
+    signalConnStates: new Map(),
     checkOpen: new Map(),
     warnings: [],
   };
   for (const c of circuit.components) {
     const def = getDef(c.type);
     if (def.valve) rt.valvePositions.set(c.id, def.valve.restPosition);
-    if (def.trigger) rt.limitTripped.set(c.id, false);
+    if (def.trigger) rt.sensorTripped.set(c.id, false);
     if (def.supply) rt.supplyOn.set(c.id, true);
     if (def.cylinder) {
       rt.cylinderPos.set(c.id, 0);
@@ -152,6 +159,17 @@ export class Engine {
     for (let i = 0; i < MAX_LOGICAL_ITERATIONS; i++) {
       let changed = false;
 
+      // Phase 1.5 — control signals (electro-pneumatic layer). A manual signal
+      // source is active while held or latched; a sensor source follows its
+      // trip state.
+      const manualOn = new Map<string, boolean>();
+      for (const c of circuit.components) {
+        if (getDef(c.type).signal?.trigger === "manual") {
+          manualOn.set(c.id, (rt.inputs.get(c.id) ?? false) || (rt.latched.get(c.id) ?? false));
+        }
+      }
+      rt.signalStates = solveSignals({ circuit, manualOn, sensorOn: rt.sensorTripped });
+
       // Phase 2 — determine each valve's spool position from its actuation.
       for (const c of circuit.components) {
         const def = getDef(c.type);
@@ -169,7 +187,7 @@ export class Engine {
               : restPos;
             break;
           case "mechanical":
-            next = (rt.limitTripped.get(c.id) ?? false) ? a.actuatedPosition : restPos;
+            next = (rt.sensorTripped.get(c.id) ?? false) ? a.actuatedPosition : restPos;
             break;
           case "pilot": {
             const pa = a.pilotActuate ? rt.portStates.get(nodeKey(c.id, a.pilotActuate)) === "PRESSURIZED" : false;
@@ -177,6 +195,14 @@ export class Engine {
             if (pa && !pr) next = a.actuatedPosition;
             else if (pr && !pa) next = restPos;
             else if (!a.bistable) next = restPos; // spring-centred single pilot
+            break;
+          }
+          case "solenoid": {
+            const sa = a.signalActuate ? rt.signalStates.get(nodeKey(c.id, a.signalActuate)) ?? false : false;
+            const sr = a.signalRest ? rt.signalStates.get(nodeKey(c.id, a.signalRest)) ?? false : false;
+            if (sa && !sr) next = a.actuatedPosition;
+            else if (sr && !sa) next = restPos;
+            else if (!a.bistable) next = restPos; // single solenoid, spring return
             break;
           }
         }
@@ -200,9 +226,12 @@ export class Engine {
 
       // connection states for rendering
       rt.connStates = new Map();
+      rt.signalConnStates = new Map();
       for (const conn of circuit.connections) {
-        const s = result.portStates.get(nodeKey(conn.from.component, conn.from.port));
-        if (s) rt.connStates.set(conn.id, s);
+        const air = result.portStates.get(nodeKey(conn.from.component, conn.from.port));
+        if (air) rt.connStates.set(conn.id, air);
+        const sig = rt.signalStates.get(nodeKey(conn.from.component, conn.from.port));
+        if (sig !== undefined) rt.signalConnStates.set(conn.id, sig);
       }
 
       // Phase 7 — sensors would update here and could feed back; none in MVP.
@@ -224,8 +253,8 @@ export class Engine {
       const at = Number(c.params.triggerAt ?? 95) / 100;
       const edge = String(c.params.triggerEdge ?? "extend");
       const tripped = pos == null ? false : edge === "retract" ? pos <= at : pos >= at;
-      if (tripped !== (rt.limitTripped.get(c.id) ?? false)) {
-        rt.limitTripped.set(c.id, tripped);
+      if (tripped !== (rt.sensorTripped.get(c.id) ?? false)) {
+        rt.sensorTripped.set(c.id, tripped);
         changed = true;
       }
     }

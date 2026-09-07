@@ -96,6 +96,35 @@ function explainComponent(circuit: Circuit, rt: RuntimeState, id: string): Expla
     };
   }
 
+  if (def.signal?.role === "sink") {
+    const on = rt.signalStates.get(nodeKey(id, def.signal.port)) ?? false;
+    return {
+      headline: `${name} is ${on ? "lit" : "off"}.`,
+      steps: [on ? "Its signal line is energised." : "Its signal line has no power."],
+    };
+  }
+
+  if (def.signal?.role === "source") {
+    const on = rt.signalStates.get(nodeKey(id, def.signal.port)) ?? false;
+    if (def.signal.trigger === "manual") {
+      return {
+        headline: `${name} is ${on ? "pressed" : "released"}.`,
+        steps: [on ? "It is energising its output signal." : "Its output signal is off."],
+      };
+    }
+    const cyl = String(comp.params.triggerCylinder || "its cylinder");
+    const at = Number(comp.params.triggerAt ?? 95);
+    const now = Math.round((rt.cylinderPos.get(String(comp.params.triggerCylinder || "")) ?? 0) * 100);
+    return {
+      headline: `${name} is ${on ? "triggered" : "clear"}.`,
+      steps: [
+        on
+          ? `${cyl} has reached ${now}% (trigger ${at}%), so it energises its output signal.`
+          : `${cyl} is at ${now}%, short of the ${at}% trigger.`,
+      ],
+    };
+  }
+
   return { headline: `${name}.`, steps: [`Type: ${def.name}.`] };
 }
 
@@ -179,7 +208,7 @@ function whyValve(
       const cyl = String(params.triggerCylinder || "its cylinder");
       const at = Number(params.triggerAt ?? 95);
       const now = Math.round((rt.cylinderPos.get(String(params.triggerCylinder || "")) ?? 0) * 100);
-      return rt.limitTripped.get(id)
+      return rt.sensorTripped.get(id)
         ? `${cyl} has reached ${now}% and tripped the roller (trigger ${at}%)`
         : `${cyl} is at ${now}%, below the ${at}% trigger, so the roller is clear`;
     }
@@ -191,6 +220,15 @@ function whyValve(
       return a.bistable
         ? "neither pilot is pressurised, so it holds its last position"
         : "neither pilot is pressurised, so it springs back to rest";
+    }
+    case "solenoid": {
+      const sa = a.signalActuate && rt.signalStates.get(nodeKey(id, a.signalActuate));
+      const sr = a.signalRest && rt.signalStates.get(nodeKey(id, a.signalRest));
+      if (sa) return `solenoid ${a.signalActuate} is energised`;
+      if (sr) return `solenoid ${a.signalRest} is energised`;
+      return a.bistable
+        ? "neither solenoid is energised, so it holds its last position"
+        : "its solenoid is de-energised, so the spring returns it to rest";
     }
   }
 }

@@ -73,6 +73,9 @@ const base = raw as unknown as KitManifest;
  * `manifest.json` so kit updates stay a clean drop-in. Art for these lives
  * under `assets/` like everything else (generated from the base valve art).
  */
+const AIR = "air" as const;
+const SIG = "signal" as const;
+
 const EXTRA_COMPONENTS: KitComponent[] = [
   {
     id: "valve-5-2-pp",
@@ -106,7 +109,64 @@ const EXTRA_COMPONENTS: KitComponent[] = [
     },
     blocked: { rest: ["3"], actuated: ["5"] },
   },
+  solenoidValve("solenoid-3-2", "3/2 solenoid valve · NC", "3-2", false),
+  solenoidValve("solenoid-5-2", "5/2 solenoid valve", "5-2", false),
+  solenoidValve("solenoid-5-2-dd", "5/2 valve · double solenoid", "5-2", true),
+  {
+    id: "signal-lamp",
+    label: "Signal lamp",
+    category: "Signals",
+    viewBox: [0, 0, 192, 128],
+    defaultState: "off",
+    ports: [{ id: "in", x: 96, y: 112, kind: SIG }],
+    assets: {
+      off: { symbol: "assets/symbols/signal-lamp--off.svg", component: "assets/components/signal-lamp--off.svg" },
+      on: { symbol: "assets/symbols/signal-lamp--on.svg", component: "assets/components/signal-lamp--on.svg" },
+    },
+    symbolStatus: "teaching schematic; review before standards-controlled publication",
+  },
 ];
+
+function solenoidValve(id: string, label: string, kind: "3-2" | "5-2", doubleSol: boolean): KitComponent {
+  const ports: KitComponent["ports"] =
+    kind === "3-2"
+      ? [
+          { id: "2", x: 108, y: 16, kind: AIR },
+          { id: "1", x: 108, y: 112, kind: AIR },
+          { id: "3", x: 132, y: 112, kind: AIR },
+        ]
+      : [
+          { id: "4", x: 108, y: 16, kind: AIR },
+          { id: "2", x: 132, y: 16, kind: AIR },
+          { id: "5", x: 100, y: 112, kind: AIR },
+          { id: "1", x: 120, y: 112, kind: AIR },
+          { id: "3", x: 140, y: 112, kind: AIR },
+        ];
+  ports.push({ id: "a", x: 8, y: 64, kind: SIG });
+  if (doubleSol) ports.push({ id: "b", x: 184, y: 64, kind: SIG });
+
+  const connections: Record<string, Array<[string, string]>> =
+    kind === "3-2"
+      ? { rest: [["2", "3"]], actuated: [["1", "2"]] }
+      : { rest: [["1", "2"], ["4", "5"]], actuated: [["1", "4"], ["2", "3"]] };
+  const blocked = kind === "3-2" ? { rest: ["1"], actuated: ["3"] } : { rest: ["3"], actuated: ["5"] };
+
+  return {
+    id,
+    label,
+    category: "Directional valves",
+    viewBox: [0, 0, 192, 128],
+    defaultState: "rest",
+    ports,
+    assets: {
+      rest: { symbol: `assets/symbols/${id}--rest.svg`, component: `assets/components/${id}--rest.svg` },
+      actuated: { symbol: `assets/symbols/${id}--actuated.svg`, component: `assets/components/${id}--actuated.svg` },
+    },
+    symbolStatus: "teaching schematic; review before standards-controlled publication",
+    connections,
+    blocked,
+  };
+}
 
 export const manifest: KitManifest = {
   ...base,

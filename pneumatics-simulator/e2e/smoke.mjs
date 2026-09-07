@@ -124,6 +124,30 @@ if (!/V1 is in the (rest|actuated) position/.test(explainText)) {
 }
 console.log(`explain: "${explainText.replace(/\s+/g, " ").trim().slice(0, 70)}…"  ✓`);
 
+// -- electro-pneumatic auto-cycle -------------------------------------
+await page.click("#reset");
+await page.selectOption('[data-act="demo"]', "electro");
+await page.waitForTimeout(300);
+await page.click("#run");
+await page.waitForTimeout(200);
+let ePb = null;
+for (const el of await page.$$("[data-actuate]")) {
+  if ((await el.getAttribute("data-actuate")) === "PB1") ePb = await el.boundingBox();
+}
+if (!ePb) await fail("electro demo has no PB1");
+await page.mouse.move(ePb.x + ePb.width / 2, ePb.y + ePb.height / 2);
+await page.mouse.down();
+await page.waitForTimeout(200);
+await page.mouse.up();
+await page.waitForTimeout(1600);
+const ePeak = await readPos();
+await page.waitForTimeout(3000);
+const eEnd = await readPos();
+if (errors.length) await fail("page errors: " + errors.join("; "));
+if (ePeak < 65) await fail(`electro: solenoid did not extend after PB1 tap (peak ${ePeak}%)`);
+if (eEnd > 15) await fail(`electro: roller switch did not auto-retract (end ${eEnd}%)`);
+console.log(`electro: tap PB1 -> ${ePeak}% -> roller switch -> ${eEnd}%  ✓`);
+
 // -- robustness: undo + unknown-type fallback --------------------------
 await page.click("#reset");
 await page.selectOption('[data-act="demo"]', "basic");

@@ -1,4 +1,4 @@
-import { getDef } from "@/components/defs.ts";
+import { getDef, isManuallyOperable } from "@/components/defs.ts";
 import type { EventBus } from "@/events/bus.ts";
 import type { Store } from "@/model/store.ts";
 import type { Engine } from "@/sim/engine.ts";
@@ -33,12 +33,8 @@ export function mountControlPanel({ host, store, engine, bus }: Args): void {
       return;
     }
 
-    const isManual = (c: { type: string }) => {
-      const k = getDef(c.type).actuation?.kind;
-      return k === "momentary" || k === "detent";
-    };
     const supplies = store.circuit.components.filter((c) => getDef(c.type).supply);
-    const actuators = store.circuit.components.filter(isManual);
+    const actuators = store.circuit.components.filter((c) => isManuallyOperable(getDef(c.type)));
     const sensors = store.circuit.components.filter((c) => getDef(c.type).trigger);
     controls = [
       ...supplies.map((c) => ({ id: c.id, kind: "supply" as const })),
@@ -80,7 +76,7 @@ export function mountControlPanel({ host, store, engine, bus }: Args): void {
     if (host.hidden) return;
     const rt = engine.runtime;
     host.querySelectorAll<HTMLElement>("[data-sensor]").forEach((el) => {
-      const on = rt.limitTripped.get(el.dataset.sensor!) ?? false;
+      const on = rt.sensorTripped.get(el.dataset.sensor!) ?? false;
       el.textContent = on ? "TRIPPED" : "CLEAR";
       el.classList.toggle("on", on);
     });
@@ -121,13 +117,10 @@ function supplyRow(c: { id: string; label?: string; params: Record<string, unkno
 
 function actuatorRow(c: { id: string; type: string; label?: string; params: Record<string, unknown> }): string {
   const def = getDef(c.type);
-  return row(
-    c.id,
-    "actuator",
-    c.label ?? def.name,
-    `${def.actuation!.control} · ${c.params.return ?? "spring"} return · momentary`,
-    "Actuate",
-  );
+  const subtitle = def.signal?.trigger === "manual"
+    ? "signal button · momentary"
+    : `${def.actuation!.control} · ${c.params.return ?? "spring"} return · momentary`;
+  return row(c.id, "actuator", c.label ?? def.name, subtitle, "Actuate");
 }
 
 function row(id: string, kind: ControlKind, title: string, subtitle: string, state: string): string {

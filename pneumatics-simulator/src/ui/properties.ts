@@ -131,7 +131,7 @@ export function mountProperties({ host, store, engine, bus, renderer }: Args): v
         `<dt>Triggered by</dt><dd><select class="p-pick" data-key="triggerCylinder" ${runMode ? "disabled" : ""}><option value="">—</option>${opts}</select></dd>`,
         `<dt>At position</dt><dd><input class="p-num" type="number" min="1" max="100" step="1" data-key="triggerAt" value="${Number(comp.params.triggerAt ?? 95)}" ${runMode ? "disabled" : ""} /> <span class="muted">%</span></dd>`,
         `<dt>When</dt><dd><select class="p-pick" data-key="triggerEdge" ${runMode ? "disabled" : ""}><option value="extend" ${edge === "extend" ? "selected" : ""}>extending past</option><option value="retract" ${edge === "retract" ? "selected" : ""}>retracting past</option></select></dd>`,
-        `<dt>Status <span class="readonly-flag">live</span></dt><dd class="ro">${runMode ? (rt.limitTripped.get(comp.id) ? "tripped" : "clear") : "—"}</dd>`,
+        `<dt>Status <span class="readonly-flag">live</span></dt><dd class="ro">${runMode ? (rt.sensorTripped.get(comp.id) ? "tripped" : "clear") : "—"}</dd>`,
       );
     }
 

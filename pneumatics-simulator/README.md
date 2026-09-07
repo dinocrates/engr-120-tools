@@ -29,11 +29,13 @@ shifts, pressure propagates, the cylinder extends. Release and it retracts.
 | Run-mode operator control panel — latch valve actuators, supply on/off (UI_DESIGN_BIBLE §2.3, §6) | ✅ |
 | Network-state solver — pressurised / exhausting / trapped regions (SDD §9–11) | ✅ |
 | White-halo tubing in five states (UI_DESIGN_BIBLE §10) | ✅ |
-| Components: air supply, exhaust, 3/2 NC valve, 5/2 valve, 5/2 double-pilot, 3/2 roller limit valve, one-way flow control, check valve, single- & double-acting cylinder | ✅ |
+| Pneumatic set: supply, exhaust, 3/2 & 5/2 valves, 5/2 double-pilot, limit valve, one-way flow control, check valve, single/double cylinder | ✅ |
 | Self-sequencing — limit valve tripped by cylinder position, pilot-shifted bistable valve, auto-cycle (UI_DESIGN_BIBLE §38) | ✅ |
 | Flow control (speed multiplier, §16) · check valve (one-way, load-holding, §17) | ✅ |
+| **Electro-pneumatics** — signal graph, electrical pushbutton, roller switch & proximity sensor, single/double-solenoid valves, signal lamp, distinct signal wiring (§7) | ✅ |
 | Camera pan / zoom / fit, undo / redo, unknown-type placeholder, deeper validation | ✅ |
-| Regulator, gauge (need numeric pressure), standalone signal glyphs, solenoids | ⬜ later |
+| Relay logic (coil + NO/NC contacts), ladder-diagram view, PLC | ⬜ next electro phases |
+| Regulator, gauge (need numeric pressure) | ⬜ later |
 | Tube crossing jump-over bridges, branch junctions, flow chevrons | ⬜ not yet |
 | Full canvas accessibility (component/connection lists, live-region announcements) | ⬜ partial |
 
@@ -62,7 +64,7 @@ src/
   kit/         the UI kit — manifest.ts, bundled SVG assets, render-state.ts, css/
   model/       diagram data model, geometry (centre-pivot), the Store
   components/  ComponentDef built from the kit manifest + engine behaviour
-  solver/      network-state pressure solver + validator
+  solver/      network-state pressure solver + boolean signal solver + validator
   sim/         simulation engine — the §11 phase cycle, valve logic, cylinder motion
   render/      SVG renderer — inlines kit artwork, view toggle, pointer interaction
   ui/          brand header, library, inspector, run control panel, transport, status, demo

@@ -46,25 +46,37 @@ export interface ComponentDef {
   };
   actuation?: {
     /**
-     * momentary — held (canvas) or latched (panel)
-     * detent    — latched only
-     * pilot     — pressure at a pilot port shifts the spool
+     * momentary  — held (canvas) or latched (panel)
+     * detent     — latched only
+     * pilot      — pneumatic pressure at a pilot port shifts the spool
+     * solenoid   — an energised control signal shifts the spool
      * mechanical — tripped by a cylinder reaching a position (limit valve)
      */
-    kind: "momentary" | "detent" | "pilot" | "mechanical";
+    kind: "momentary" | "detent" | "pilot" | "solenoid" | "mechanical";
     actuatedPosition: number;
     restPosition?: number;
     control: string;
-    /** pilot: port whose pressure drives the spool to `actuatedPosition` */
+    /** pilot: air port whose pressure drives the spool to `actuatedPosition` */
     pilotActuate?: string;
-    /** pilot: port whose pressure drives it back to `restPosition` */
+    /** pilot: air port whose pressure drives it back to `restPosition` */
     pilotRest?: string;
-    /** pilot: hold the last position when neither pilot is pressurised */
+    /** solenoid: signal port whose energised state drives to `actuatedPosition` */
+    signalActuate?: string;
+    /** solenoid: signal port whose energised state drives back to `restPosition` */
+    signalRest?: string;
+    /** hold the last position when neither drive is active (bistable) */
     bistable?: boolean;
   };
-  /** mechanically-triggered valve (limit valve) — instance params say which
-   *  cylinder and where. */
+  /** mechanically-triggered by a cylinder reaching a position (limit valve,
+   *  roller switch, proximity sensor). Instance params say which cylinder. */
   trigger?: true;
+  /** control-signal role (electro-pneumatic layer). */
+  signal?: {
+    role: "source" | "sink";
+    port: string;
+    /** source: what makes it active */
+    trigger?: "manual" | "cylinder";
+  };
   cylinder?: {
     capPort: string;
     /** absent for single-acting (spring return) cylinders */
@@ -83,6 +95,7 @@ export interface ComponentDef {
 interface Behaviour {
   actuation?: ComponentDef["actuation"];
   trigger?: true;
+  signal?: ComponentDef["signal"];
   cylinder?: ComponentDef["cylinder"];
   supply?: ComponentDef["supply"];
   exhaust?: ComponentDef["exhaust"];
@@ -135,6 +148,55 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   "check-valve": {
     checkValve: { inPort: "1", outPort: "2" },
   },
+
+  /* electro-pneumatic layer (UI_DESIGN_BIBLE §7) */
+  pushbutton: {
+    signal: { role: "source", port: "out", trigger: "manual" },
+  },
+  "roller-switch": {
+    signal: { role: "source", port: "out", trigger: "cylinder" },
+    trigger: true,
+    defaultParams: { triggerAt: 95, triggerEdge: "extend" },
+  },
+  "proximity-sensor": {
+    signal: { role: "source", port: "out", trigger: "cylinder" },
+    trigger: true,
+    defaultParams: { triggerAt: 95, triggerEdge: "extend" },
+  },
+  "signal-lamp": {
+    signal: { role: "sink", port: "in" },
+  },
+  "solenoid-3-2": {
+    actuation: {
+      kind: "solenoid",
+      actuatedPosition: 1,
+      restPosition: 0,
+      control: "Solenoid",
+      signalActuate: "a",
+    },
+    defaultParams: { return: "spring" },
+  },
+  "solenoid-5-2": {
+    actuation: {
+      kind: "solenoid",
+      actuatedPosition: 1,
+      restPosition: 0,
+      control: "Solenoid",
+      signalActuate: "a",
+    },
+    defaultParams: { return: "spring" },
+  },
+  "solenoid-5-2-dd": {
+    actuation: {
+      kind: "solenoid",
+      actuatedPosition: 1,
+      restPosition: 0,
+      control: "Double solenoid",
+      signalActuate: "a",
+      signalRest: "b",
+      bistable: true,
+    },
+  },
 };
 
 /** Order shown in the library palette. */
@@ -149,7 +211,23 @@ export const LIBRARY_ORDER: string[] = [
   "check-valve",
   "cylinder-single",
   "cylinder-double",
+  "solenoid-3-2",
+  "solenoid-5-2",
+  "solenoid-5-2-dd",
+  "pushbutton",
+  "roller-switch",
+  "proximity-sensor",
+  "signal-lamp",
 ];
+
+/** Manual-operator components a student can toggle in the control panel. */
+export function isManuallyOperable(def: ComponentDef): boolean {
+  return (
+    def.actuation?.kind === "momentary" ||
+    def.actuation?.kind === "detent" ||
+    def.signal?.trigger === "manual"
+  );
+}
 
 function buildDef(kit: KitComponent, b: Behaviour): ComponentDef {
   const [, , w, h] = kit.viewBox;
@@ -180,6 +258,7 @@ function buildDef(kit: KitComponent, b: Behaviour): ComponentDef {
     ...(valve ? { valve } : {}),
     ...(b.actuation ? { actuation: b.actuation } : {}),
     ...(b.trigger ? { trigger: true as const } : {}),
+    ...(b.signal ? { signal: b.signal } : {}),
     ...(b.cylinder ? { cylinder: b.cylinder } : {}),
     ...(b.supply ? { supply: b.supply } : {}),
     ...(b.exhaust ? { exhaust: b.exhaust } : {}),

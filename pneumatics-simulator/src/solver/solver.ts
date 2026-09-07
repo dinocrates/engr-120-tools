@@ -15,6 +15,7 @@
 import { getDef } from "@/components/defs.ts";
 import { nodeKey } from "@/model/geometry.ts";
 import type { Circuit } from "@/model/types.ts";
+import { UnionFind } from "./unionfind.ts";
 
 export type PressureState = "UNPRESSURIZED" | "PRESSURIZED" | "EXHAUSTING" | "TRAPPED" | "SHORT";
 
@@ -35,33 +36,6 @@ export interface SolveResult {
   /** check-valve componentId -> currently open */
   checkOpen: Map<string, boolean>;
   warnings: string[];
-}
-
-class UnionFind {
-  private parent = new Map<string, string>();
-
-  add(x: string): void {
-    if (!this.parent.has(x)) this.parent.set(x, x);
-  }
-
-  find(x: string): string {
-    this.add(x);
-    let root = x;
-    while (this.parent.get(root) !== root) root = this.parent.get(root)!;
-    let cur = x;
-    while (this.parent.get(cur) !== root) {
-      const next = this.parent.get(cur)!;
-      this.parent.set(cur, root);
-      cur = next;
-    }
-    return root;
-  }
-
-  union(a: string, b: string): void {
-    const ra = this.find(a);
-    const rb = this.find(b);
-    if (ra !== rb) this.parent.set(ra, rb);
-  }
 }
 
 const RANK: Record<PressureState, number> = {

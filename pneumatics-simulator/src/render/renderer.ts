@@ -9,7 +9,7 @@
  * selection, camera, or simulation state (UI_DESIGN_BIBLE §2).
  */
 
-import { getDef, isSupported } from "@/components/defs.ts";
+import { getDef, isManuallyOperable, isSupported } from "@/components/defs.ts";
 import type { EventBus } from "@/events/bus.ts";
 import { instanceTransformAttr, nodeKey, worldPort, worldPortDir, worldSize } from "@/model/geometry.ts";
 import type { ComponentInstance, ConnectionEnd, Vec2 } from "@/model/types.ts";
@@ -27,6 +27,9 @@ const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 3;
 
 const snap = (n: number): number => Math.round(n / GRID) * GRID;
+
+const portKind = (type: string, portId: string): "air" | "signal" =>
+  getDef(type).ports.find((p) => p.id === portId)?.kind ?? "air";
 
 const TUBE_STATE: Record<PressureState, string> = {
   UNPRESSURIZED: "inactive",
@@ -223,8 +226,7 @@ export class Renderer {
     }
     g.append(ports);
 
-    const manual = def.actuation?.kind === "momentary" || def.actuation?.kind === "detent";
-    if (this.store.mode === "run" && manual) {
+    if (this.store.mode === "run" && isManuallyOperable(def)) {
       const [, , w, h] = def.viewBox;
       g.append(
         svg("rect", {
@@ -269,8 +271,10 @@ export class Renderer {
       worldPortDir(to, conn.to.port),
       ((index % 5) - 2) * 16,
     );
-    const wire = group("wire");
+    const isSignal = portKind(from.type, conn.from.port) === "signal";
+    const wire = group(isSignal ? "wire wire-sig" : "wire");
     wire.dataset.id = id;
+    if (isSignal) wire.dataset.signal = "1";
     wire.append(
       svg("path", { d, class: "wire-halo" }),
       svg("path", { d, class: "wire-line" }),
@@ -305,6 +309,8 @@ export class Renderer {
           ? rt.valvePositions.get(inst.id) ?? def.valve.restPosition
           : def.valve.restPosition;
         stateName = def.valve.positions[idx]?.name ?? def.defaultState;
+      } else if (def.signal?.role === "sink") {
+        stateName = live && rt.signalStates.get(nodeKey(inst.id, def.signal.port)) ? "on" : "off";
       }
       const key = `${this.view}|${stateName}`;
       if (this.renderKey.get(inst.id) !== key) {
@@ -314,10 +320,13 @@ export class Renderer {
       }
 
       // control-panel state -> component styling
+      const solOn =
+        !!def.actuation?.signalActuate &&
+        !!rt.signalStates.get(nodeKey(inst.id, def.actuation.signalActuate));
       g.classList.toggle("input-off", live && !!def.supply && !(rt.supplyOn.get(inst.id) ?? true));
       g.classList.toggle(
         "latched-on",
-        live && (!!rt.latched.get(inst.id) || !!rt.limitTripped.get(inst.id)),
+        live && (!!rt.latched.get(inst.id) || !!rt.sensorTripped.get(inst.id) || solOn),
       );
 
       // continuous state -> piston / needle
@@ -336,8 +345,13 @@ export class Renderer {
     for (const conn of this.store.circuit.connections) {
       const wire = this.wires.querySelector<SVGGElement>(`[data-id="${conn.id}"]`);
       if (!wire) continue;
-      const state: PressureState = live ? rt.connStates.get(conn.id) ?? "UNPRESSURIZED" : "UNPRESSURIZED";
-      wire.setAttribute("class", `wire tube-${live ? TUBE_STATE[state] : "idle"}`);
+      if (wire.dataset.signal) {
+        const on = live && (rt.signalConnStates.get(conn.id) ?? false);
+        wire.setAttribute("class", `wire wire-sig sig-${live ? (on ? "on" : "off") : "idle"}`);
+      } else {
+        const state: PressureState = live ? rt.connStates.get(conn.id) ?? "UNPRESSURIZED" : "UNPRESSURIZED";
+        wire.setAttribute("class", `wire tube-${live ? TUBE_STATE[state] : "idle"}`);
+      }
     }
   }
 
@@ -533,8 +547,19 @@ export class Renderer {
     const finish = (ev: PointerEvent): void => {
       this.svgEl.removeEventListener("pointerup", finish);
       const targetEnd = this.nearestPort(this.clientToWorld(ev));
-      if (targetEnd && this.connectFrom && this.store.addConnection(this.connectFrom, targetEnd)) {
-        this.bus.emit("status:changed");
+      if (targetEnd && this.connectFrom) {
+        const fromKind = portKind(this.store.getComponent(this.connectFrom.component)!.type, this.connectFrom.port);
+        const toKind = portKind(this.store.getComponent(targetEnd.component)!.type, targetEnd.port);
+        if (fromKind !== toKind) {
+          this.bus.emit("status:changed", {
+            error:
+              fromKind === "signal"
+                ? "That's a control signal — connect it to another signal port, not an air port."
+                : "That's an air port — connect it to another air port, not a control signal.",
+          });
+        } else if (this.store.addConnection(this.connectFrom, targetEnd)) {
+          this.bus.emit("status:changed");
+        }
       }
       this.cancelConnect();
     };
