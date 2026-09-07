@@ -31,8 +31,9 @@ shifts, pressure propagates, the cylinder extends. Release and it retracts.
 | Components: air supply, exhaust, 3/2 NC valve, 5/2 valve, 5/2 double-pilot, 3/2 roller limit valve, one-way flow control, check valve, single- & double-acting cylinder | ✅ |
 | Self-sequencing — limit valve tripped by cylinder position, pilot-shifted bistable valve, auto-cycle (UI_DESIGN_BIBLE §38) | ✅ |
 | Flow control (speed multiplier, §16) · check valve (one-way, load-holding, §17) | ✅ |
+| Camera pan / zoom / fit, undo / redo, unknown-type placeholder, deeper validation | ✅ |
 | Regulator, gauge (need numeric pressure), standalone signal glyphs, solenoids | ⬜ later |
-| Camera pan / zoom, undo / redo, tube branch junctions | ⬜ not yet |
+| Tube crossing jump-over bridges, branch junctions, flow chevrons | ⬜ not yet |
 | Full canvas accessibility (component/connection lists, live-region announcements) | ⬜ partial |
 
 ## Develop
@@ -41,9 +42,14 @@ shifts, pressure propagates, the cylinder extends. Release and it retracts.
 npm install
 npm run dev        # http://localhost:5173/engr-120-tools/pneumatics-simulator/
 npm run build      # tsc --noEmit && vite build  ->  dist/
-npm run smoke      # Playwright MVP + view-toggle check; needs `npm run dev`.
+npm run smoke      # Playwright: MVP loop, view toggle, control panel, auto-cycle,
+                   # undo + unknown-type fallback. Needs `npm run dev` running;
                    # CHROME_PATH reuses a system Chrome.
 ```
+
+Canvas: scroll to zoom, drag empty space to pan, the fit button (top-right of the
+canvas) frames the circuit. <kbd>Ctrl/Cmd+Z</kbd> / <kbd>Shift+Ctrl/Cmd+Z</kbd>
+undo/redo.
 
 ## Architecture
 

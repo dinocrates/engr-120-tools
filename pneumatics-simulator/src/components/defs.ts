@@ -193,10 +193,31 @@ export const COMPONENT_DEFS: Record<string, ComponentDef> = Object.fromEntries(
   Object.entries(BEHAVIOURS).map(([id, b]) => [id, buildDef(kitComponent(id), b)]),
 );
 
+const unknownDefs = new Map<string, ComponentDef>();
+
+/** Never throws — an unknown type gets a neutral placeholder def so a circuit
+ *  referencing it still loads (UI_DESIGN_BIBLE §11). */
 export function getDef(type: string): ComponentDef {
   const def = COMPONENT_DEFS[type];
-  if (!def) throw new Error(`Unknown / unsupported component type: ${type}`);
-  return def;
+  if (def) return def;
+  let u = unknownDefs.get(type);
+  if (!u) {
+    const kit = kitComponent(type);
+    const [, , w, h] = kit.viewBox;
+    u = {
+      type,
+      name: type,
+      category: "Unknown",
+      viewBox: kit.viewBox,
+      size: { x: w, y: h },
+      ports: [],
+      defaultView: "symbol",
+      defaultState: "default",
+      defaultParams: {},
+    };
+    unknownDefs.set(type, u);
+  }
+  return u;
 }
 
 export function isSupported(type: string): boolean {

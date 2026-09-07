@@ -101,7 +101,23 @@ header#brand img.header-lockup { cursor: default; }
   padding: 8px 12px;
 }
 .badge { padding: 4px 8px; font: 11px var(--font-data); }
-.canvas-surface { flex: 1; min-height: 0; position: relative; }
+.canvas-surface { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+
+.canvas-tools { display: flex; gap: 4px; }
+.canvas-tools button {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--navy-900);
+  background: var(--panel);
+  box-shadow: var(--pixel-bevel);
+  cursor: pointer;
+}
+.canvas-tools button svg { width: 16px; height: 16px; }
+.pneu-button.icon-only { padding: 0 8px; }
+.pneu-button.icon-only svg { width: 16px; height: 16px; }
 
 .legend {
   display: flex;
@@ -137,6 +153,11 @@ header#brand img.header-lockup { cursor: default; }
 }
 .ws-svg[data-mode="edit"] .component { cursor: grab; }
 .ws-svg[data-mode="run"] .component { cursor: pointer; }
+.ws-svg.panning { cursor: grabbing; }
+
+.unknown-box { fill: #eef2f8; stroke: var(--unknown); stroke-width: 2; stroke-dasharray: 6 4; }
+.unknown-q { fill: var(--unknown); font: 700 32px var(--font-ui); }
+.unknown-label { fill: var(--muted); font: 11px var(--font-data); }
 
 .layer-components .artwork > svg { overflow: visible; }
 

@@ -21,11 +21,11 @@ export interface InstanceTransform {
   scale?: number;
 }
 
-/** World position of a component port under an instance transform. */
+/** World position of a component port under an instance transform. Falls back
+ *  to the component centre for an unknown port (missing-art case, §11). */
 export function worldPort(def: KitComponent, portId: string, t: InstanceTransform): Vec2 {
-  const port = def.ports.find((p) => p.id === portId);
-  if (!port) throw new Error(`${def.id} has no port ${portId}`);
   const [, , w, h] = def.viewBox;
+  const port = def.ports.find((p) => p.id === portId) ?? { x: w / 2, y: h / 2 };
   const rad = ((t.rotation ?? 0) * Math.PI) / 180;
   const scale = t.scale ?? 1;
   const dx = port.x - w / 2;

@@ -15,15 +15,88 @@ export type Mode = "edit" | "run";
 let seq = 0;
 const uid = (prefix: string): string => `${prefix}${(++seq).toString(36)}${Date.now().toString(36).slice(-3)}`;
 
+const HISTORY_LIMIT = 60;
+
 export class Store {
   circuit: Circuit = emptyCircuit();
   selection: string | null = null;
   mode: Mode = "edit";
 
+  private undoStack: string[] = [];
+  private redoStack: string[] = [];
+  private batching = false;
+  private batchBaseline = "";
+  private batchDirty = false;
+
   constructor(private bus: EventBus) {}
 
   private changed(): void {
     this.bus.emit("circuit:changed");
+  }
+
+  /* -------------------------------------------------------------- history */
+
+  private pushUndo(state: string): void {
+    this.undoStack.push(state);
+    if (this.undoStack.length > HISTORY_LIMIT) this.undoStack.shift();
+    this.redoStack.length = 0;
+    this.bus.emit("history:changed");
+  }
+
+  /** Record the pre-mutation state. Inside a batch, only marks it dirty so the
+   *  whole run collapses into one undo step. */
+  private snapshot(): void {
+    if (this.batching) {
+      this.batchDirty = true;
+      return;
+    }
+    this.pushUndo(JSON.stringify(this.circuit));
+  }
+
+  /** Group a run of mutations (e.g. a drag) into one undo step. */
+  beginBatch(): void {
+    if (this.batching) return;
+    this.batching = true;
+    this.batchDirty = false;
+    this.batchBaseline = JSON.stringify(this.circuit);
+  }
+
+  endBatch(): void {
+    if (this.batching && this.batchDirty) this.pushUndo(this.batchBaseline);
+    this.batching = false;
+  }
+
+  get canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+  get canRedo(): boolean {
+    return this.redoStack.length > 0;
+  }
+
+  undo(): void {
+    const prev = this.undoStack.pop();
+    if (prev === undefined) return;
+    this.redoStack.push(JSON.stringify(this.circuit));
+    this.circuit = JSON.parse(prev) as Circuit;
+    this.selection = null;
+    this.bus.emit("history:changed");
+    this.changed();
+  }
+
+  redo(): void {
+    const next = this.redoStack.pop();
+    if (next === undefined) return;
+    this.undoStack.push(JSON.stringify(this.circuit));
+    this.circuit = JSON.parse(next) as Circuit;
+    this.selection = null;
+    this.bus.emit("history:changed");
+    this.changed();
+  }
+
+  private clearHistory(): void {
+    this.undoStack.length = 0;
+    this.redoStack.length = 0;
+    this.bus.emit("history:changed");
   }
 
   setMode(mode: Mode): void {
@@ -43,6 +116,7 @@ export class Store {
   }
 
   addComponent(type: string, position: Vec2): ComponentInstance {
+    this.snapshot();
     const def = getDef(type);
     const prefix = labelPrefix(def);
     const count =
@@ -63,6 +137,7 @@ export class Store {
   moveComponent(id: string, position: Vec2): void {
     const c = this.getComponent(id);
     if (!c) return;
+    this.snapshot();
     c.position = position;
     this.changed();
   }
@@ -70,6 +145,7 @@ export class Store {
   rotateComponent(id: string, delta: 90 | -90): void {
     const c = this.getComponent(id);
     if (!c) return;
+    this.snapshot();
     c.rotation = (((c.rotation + delta) % 360) + 360) % 360 as Rotation;
     this.changed();
   }
@@ -77,6 +153,7 @@ export class Store {
   setParam(id: string, key: string, value: string | number | boolean): void {
     const c = this.getComponent(id);
     if (!c) return;
+    this.snapshot();
     c.params[key] = value;
     this.changed();
   }
@@ -84,11 +161,14 @@ export class Store {
   setLabel(id: string, label: string): void {
     const c = this.getComponent(id);
     if (!c) return;
+    this.snapshot();
     c.label = label;
     this.changed();
   }
 
   removeComponent(id: string): void {
+    if (!this.getComponent(id)) return;
+    this.snapshot();
     this.circuit.components = this.circuit.components.filter((c) => c.id !== id);
     this.circuit.connections = this.circuit.connections.filter(
       (w) => w.from.component !== id && w.to.component !== id,
@@ -113,6 +193,7 @@ export class Store {
 
   addConnection(from: ConnectionEnd, to: ConnectionEnd): Connection | null {
     if (!this.canConnect(from, to)) return null;
+    this.snapshot();
     const conn: Connection = { id: uid("w"), from, to };
     this.circuit.connections.push(conn);
     this.changed();
@@ -120,6 +201,8 @@ export class Store {
   }
 
   removeConnection(id: string): void {
+    if (!this.circuit.connections.some((w) => w.id === id)) return;
+    this.snapshot();
     this.circuit.connections = this.circuit.connections.filter((w) => w.id !== id);
     this.changed();
   }
@@ -127,6 +210,8 @@ export class Store {
   clear(): void {
     this.circuit = emptyCircuit();
     this.selection = null;
+    this.clearHistory();
+    this.bus.emit("circuit:loaded");
     this.changed();
   }
 
@@ -139,10 +224,30 @@ export class Store {
     if (parsed.version !== 1 || !Array.isArray(parsed.components)) {
       throw new Error("Not a valid circuit file.");
     }
-    this.circuit = parsed;
+    this.circuit = normalizeCircuit(parsed);
     this.selection = null;
+    this.clearHistory();
+    this.bus.emit("circuit:loaded");
     this.changed();
   }
+}
+
+/** Defensive fixups on a loaded file (UI_DESIGN_BIBLE §11). */
+function normalizeCircuit(c: Circuit): Circuit {
+  return {
+    version: 1,
+    components: (c.components ?? []).map((comp) => ({
+      id: String(comp.id),
+      type: String(comp.type),
+      position: { x: Number(comp.position?.x ?? 0), y: Number(comp.position?.y ?? 0) },
+      rotation: ([0, 90, 180, 270].includes(comp.rotation as number) ? comp.rotation : 0) as Rotation,
+      label: comp.label ? String(comp.label) : undefined,
+      params: comp.params && typeof comp.params === "object" ? comp.params : {},
+    })),
+    connections: (c.connections ?? []).filter(
+      (w) => w?.id && w.from?.component && w.from?.port && w.to?.component && w.to?.port,
+    ),
+  };
 }
 
 function labelPrefix(def: ReturnType<typeof getDef>): string {

@@ -32,7 +32,11 @@
           <main class="canvas">
             <div class="canvas-bar">
               <span class="badge" id="stateBadge">EDIT · SYMBOLS</span>
-              <div id="canvas-tools"></div>
+              <div id="canvas-tools" class="canvas-tools">
+                <button type="button" data-cam="out" title="Zoom out" aria-label="Zoom out"></button>
+                <button type="button" data-cam="in" title="Zoom in" aria-label="Zoom in"></button>
+                <button type="button" data-cam="fit" title="Fit circuit" aria-label="Fit circuit"></button>
+              </div>
             </div>
             <div class="canvas-surface" id="workspace"></div>
             <div class="legend">

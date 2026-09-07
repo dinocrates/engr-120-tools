@@ -110,5 +110,47 @@ if (cyclePeak < 70) await fail(`auto-cycle did not extend after PB1 tap (peak ${
 if (cycleEnd > 12) await fail(`auto-cycle did not auto-retract at the limit valve (end ${cycleEnd}%)`);
 
 console.log(`auto-cycle: tap PB1 -> ${cyclePeak}% -> limit -> ${cycleEnd}%  ✓`);
+
+// -- robustness: undo + unknown-type fallback --------------------------
+await page.click("#reset");
+await page.selectOption('[data-act="demo"]', "basic");
+await page.waitForTimeout(250);
+const nComps = await page.$$eval(".layer-components .component", (els) => els.length);
+await page.evaluate(() => {
+  const g = document.querySelector(".component.type-cylinder-double");
+  const r = g.getBoundingClientRect();
+  const opts = { bubbles: true, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 };
+  g.dispatchEvent(new PointerEvent("pointerdown", opts));
+  document.querySelector(".ws-svg").dispatchEvent(
+    new PointerEvent("pointermove", { ...opts, clientX: opts.clientX + 90, clientY: opts.clientY + 30 }),
+  );
+  document.querySelector(".ws-svg").dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+});
+await page.waitForTimeout(100);
+await page.keyboard.press("Control+z");
+await page.waitForTimeout(150);
+
+const unknown = {
+  version: 1,
+  components: [
+    { id: "S", type: "air-supply", position: { x: 40, y: 200 }, rotation: 0, params: {} },
+    { id: "X", type: "totally-made-up", position: { x: 300, y: 200 }, rotation: 0, params: {} },
+  ],
+  connections: [{ id: "w", from: { component: "S", port: "1" }, to: { component: "X", port: "1" } }],
+};
+await page.evaluate((c) => {
+  const dt = new DataTransfer();
+  dt.items.add(new File([JSON.stringify(c)], "u.json", { type: "application/json" }));
+  const inp = document.getElementById("fileInput");
+  inp.files = dt.files;
+  inp.dispatchEvent(new Event("change", { bubbles: true }));
+}, unknown);
+await page.waitForTimeout(300);
+const placeholder = await page.$(".unknown-art");
+
+if (errors.length) await fail("page errors: " + errors.join("; "));
+if (!placeholder) await fail("unknown component type did not render a placeholder");
+
+console.log(`robustness: ${nComps} comps, undo + unknown-type fallback  ✓`);
 console.log("SMOKE OK");
 await browser.close();

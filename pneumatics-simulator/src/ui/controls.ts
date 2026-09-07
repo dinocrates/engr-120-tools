@@ -22,6 +22,8 @@ export function mountControls({ host, actions, store, engine, bus }: Args): void
     <button class="pneu-button" data-act="new">${iconSvg("new")}New</button>
     <button class="pneu-button" data-act="open">${iconSvg("open")}Open</button>
     <button class="pneu-button" data-act="save">${iconSvg("save")}Save</button>
+    <button class="pneu-button icon-only" data-act="undo" title="Undo" aria-label="Undo">${iconSvg("undo")}</button>
+    <button class="pneu-button icon-only" data-act="redo" title="Redo" aria-label="Redo">${iconSvg("redo")}</button>
     <label class="demo-pick">${iconSvg("book")}
       <select data-act="demo" aria-label="Load a demo circuit">
         <option value="">Demo…</option>
@@ -49,11 +51,31 @@ export function mountControls({ host, actions, store, engine, bus }: Args): void
   const step = $<HTMLButtonElement>("step");
   const fileInput = document.getElementById("fileInput") as HTMLInputElement;
 
+  const undoBtn = actions.querySelector<HTMLButtonElement>('[data-act="undo"]')!;
+  const redoBtn = actions.querySelector<HTMLButtonElement>('[data-act="redo"]')!;
+
+  const syncHistory = (): void => {
+    const editable = store.mode === "edit";
+    undoBtn.disabled = !editable || !store.canUndo;
+    redoBtn.disabled = !editable || !store.canRedo;
+  };
+  undoBtn.addEventListener("click", () => {
+    store.undo();
+    bus.emit("status:changed");
+  });
+  redoBtn.addEventListener("click", () => {
+    store.redo();
+    bus.emit("status:changed");
+  });
+  bus.on("history:changed", syncHistory);
+  bus.on("mode:changed", syncHistory);
+
   const setRunMode = (on: boolean): void => {
     store.setMode(on ? "run" : "edit");
     for (const a of ["new", "open", "save", "demo"]) {
       actions.querySelector<HTMLButtonElement>(`[data-act="${a}"]`)!.disabled = on;
     }
+    syncHistory();
   };
   const syncButtons = (): void => {
     run.disabled = engine.running;
@@ -156,4 +178,5 @@ export function mountControls({ host, actions, store, engine, bus }: Args): void
   bus.on("selection:changed", updateReadout);
   bus.on("circuit:changed", updateReadout);
   updateReadout();
+  syncHistory();
 }

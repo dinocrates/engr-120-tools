@@ -115,10 +115,23 @@ export const manifest: KitManifest = {
 
 const byId = new Map(manifest.components.map((c) => [c.id, c]));
 
+/** A neutral stand-in for a component type this build doesn't know
+ *  (UI_DESIGN_BIBLE §11 — keep the record, don't crash). */
+function fallbackKit(id: string): KitComponent {
+  return {
+    id,
+    label: id,
+    category: "Unknown",
+    viewBox: [0, 0, 160, 100],
+    defaultState: "default",
+    ports: [],
+    assets: {},
+    symbolStatus: "unsupported component type",
+  };
+}
+
 export function kitComponent(id: string): KitComponent {
-  const c = byId.get(id);
-  if (!c) throw new Error(`No manifest entry for component "${id}"`);
-  return c;
+  return byId.get(id) ?? fallbackKit(id);
 }
 
 export function hasKitComponent(id: string): boolean {

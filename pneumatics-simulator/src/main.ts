@@ -9,6 +9,7 @@ import { mountControls } from "@/ui/controls.ts";
 import { mountControlPanel } from "@/ui/control-panel.ts";
 import { mountStatus } from "@/ui/status.ts";
 import { demoCircuit } from "@/ui/demo.ts";
+import { iconSvg } from "@/ui/icons.ts";
 import "@/ui/style.css";
 
 const $ = (id: string): HTMLElement => {
@@ -50,6 +51,16 @@ bus.on("sim:started", syncBadge);
 bus.on("sim:paused", syncBadge);
 bus.on("sim:reset", syncBadge);
 
+// Canvas camera controls (UI_DESIGN_BIBLE §5).
+const camIcon: Record<string, string> = { out: "zoom-out", in: "zoom-in", fit: "fit" };
+for (const btn of $("canvas-tools").querySelectorAll<HTMLButtonElement>("[data-cam]")) {
+  btn.innerHTML = iconSvg(camIcon[btn.dataset.cam!]!);
+  btn.addEventListener("click", () => {
+    if (btn.dataset.cam === "fit") renderer.fitView();
+    else renderer.zoomBy(btn.dataset.cam === "in" ? 1.25 : 1 / 1.25);
+  });
+}
+
 store.load(JSON.stringify(demoCircuit()));
 engine.reset();
 syncBadge();
@@ -70,6 +81,18 @@ window.addEventListener("keydown", (e) => {
   if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
     return;
   }
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && (e.key === "z" || e.key === "Z")) {
+    e.preventDefault();
+    if (store.mode === "edit") (e.shiftKey ? store.redo() : store.undo());
+    return;
+  }
+  if (mod && (e.key === "y" || e.key === "Y")) {
+    e.preventDefault();
+    if (store.mode === "edit") store.redo();
+    return;
+  }
+
   const sel = store.selection;
   if (store.mode === "edit" && sel) {
     if (e.key === "Delete" || e.key === "Backspace") {

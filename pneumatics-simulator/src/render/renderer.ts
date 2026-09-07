@@ -9,7 +9,7 @@
  * selection, camera, or simulation state (UI_DESIGN_BIBLE §2).
  */
 
-import { getDef } from "@/components/defs.ts";
+import { getDef, isSupported } from "@/components/defs.ts";
 import type { EventBus } from "@/events/bus.ts";
 import { instanceTransformAttr, nodeKey, worldPort, worldPortDir, worldSize } from "@/model/geometry.ts";
 import type { ComponentInstance, ConnectionEnd, Vec2 } from "@/model/types.ts";
@@ -21,10 +21,10 @@ import type { KitView } from "@/kit/manifest.ts";
 import type { PressureState } from "@/solver/solver.ts";
 import { group, parseSvg, svg } from "./svg.ts";
 
-const VIEW_W = 880;
-const VIEW_H = 640;
 const GRID = 8;
 const PORT_HIT = 14;
+const ZOOM_MIN = 0.35;
+const ZOOM_MAX = 3;
 
 const snap = (n: number): number => Math.round(n / GRID) * GRID;
 
@@ -38,11 +38,13 @@ const TUBE_STATE: Record<PressureState, string> = {
 
 export class Renderer {
   readonly svgEl: SVGSVGElement;
+  private camera: SVGGElement;
   private wires: SVGGElement;
   private comps: SVGGElement;
   private labels: SVGGElement;
   private overlay: SVGGElement;
 
+  private cam = { x: 0, y: 0, zoom: 1 };
   private view: KitView = "symbol";
   private compGroups = new Map<string, SVGGElement>();
   private renderKey = new Map<string, string>(); // id -> "view|state" currently drawn
@@ -52,32 +54,91 @@ export class Renderer {
   private connectFrom: ConnectionEnd | null = null;
   private connectRubber: SVGPathElement | null = null;
   private drag: { id: string; grabDX: number; grabDY: number } | null = null;
+  private panFrom: { px: number; py: number; camX: number; camY: number } | null = null;
   private activeActuator: string | null = null;
 
   constructor(
-    host: HTMLElement,
+    private host: HTMLElement,
     private store: Store,
     private engine: Engine,
     private bus: EventBus,
   ) {
-    this.svgEl = svg("svg", {
-      class: "ws-svg",
-      viewBox: `0 0 ${VIEW_W} ${VIEW_H}`,
-      preserveAspectRatio: "xMidYMid meet",
-    });
+    this.svgEl = svg("svg", { class: "ws-svg", preserveAspectRatio: "xMinYMin slice" });
+    this.camera = group("camera");
     this.wires = group("layer layer-wires");
     this.comps = group("layer layer-components");
     this.labels = group("layer layer-labels");
     this.overlay = group("layer layer-overlay");
-    this.svgEl.append(this.wires, this.comps, this.labels, this.overlay);
+    this.camera.append(this.wires, this.comps, this.labels, this.overlay);
+    this.svgEl.append(this.camera);
     host.append(this.svgEl);
 
     this.svgEl.dataset.mode = this.store.mode;
     this.svgEl.dataset.view = this.view;
 
+    this.syncViewBox();
+    new ResizeObserver(() => this.syncViewBox()).observe(host);
+
     this.bindPointer();
     this.bindEvents();
     this.rebuild();
+  }
+
+  /* ---------------------------------------------------------------- camera */
+
+  private syncViewBox(): void {
+    const w = Math.max(1, this.host.clientWidth);
+    const h = Math.max(1, this.host.clientHeight);
+    this.svgEl.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
+
+  private applyCamera(): void {
+    this.camera.setAttribute("transform", `translate(${this.cam.x} ${this.cam.y}) scale(${this.cam.zoom})`);
+  }
+
+  private screenPoint(e: { clientX: number; clientY: number }): Vec2 {
+    const r = this.svgEl.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  zoomBy(factor: number, about?: { clientX: number; clientY: number }): void {
+    const s = about ? this.screenPoint(about) : { x: this.host.clientWidth / 2, y: this.host.clientHeight / 2 };
+    const wx = (s.x - this.cam.x) / this.cam.zoom;
+    const wy = (s.y - this.cam.y) / this.cam.zoom;
+    this.cam.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, this.cam.zoom * factor));
+    this.cam.x = s.x - wx * this.cam.zoom;
+    this.cam.y = s.y - wy * this.cam.zoom;
+    this.applyCamera();
+  }
+
+  fitView(): void {
+    const comps = this.store.circuit.components;
+    const pad = 60;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const inst of comps) {
+      const s = worldSize(inst);
+      minX = Math.min(minX, inst.position.x);
+      minY = Math.min(minY, inst.position.y);
+      maxX = Math.max(maxX, inst.position.x + s.x);
+      maxY = Math.max(maxY, inst.position.y + s.y);
+    }
+    const W = this.host.clientWidth;
+    const H = this.host.clientHeight;
+    if (!comps.length || !isFinite(minX)) {
+      this.cam = { x: 0, y: 0, zoom: 1 };
+      this.applyCamera();
+      return;
+    }
+    const bw = maxX - minX + pad * 2;
+    const bh = maxY - minY + pad * 2;
+    const zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.min(W / bw, H / bh)));
+    this.cam.zoom = zoom;
+    this.cam.x = (W - (maxX + minX) * zoom) / 2;
+    this.cam.y = (H - (maxY + minY) * zoom) / 2;
+    this.applyCamera();
   }
 
   get currentView(): KitView {
@@ -106,6 +167,10 @@ export class Renderer {
 
   private bindEvents(): void {
     this.bus.on("circuit:changed", () => this.rebuild());
+    this.bus.on("circuit:loaded", () => {
+      this.rebuild();
+      this.fitView();
+    });
     this.bus.on("selection:changed", () => this.applySelection());
     this.bus.on("mode:changed", () => {
       this.svgEl.dataset.mode = this.store.mode;
@@ -277,22 +342,30 @@ export class Renderer {
   }
 
   private makeArtwork(type: string, stateName: string): SVGSVGElement {
-    const el = parseSvg(componentSvg(kitComponent(type), this.view, stateName));
-    el.setAttribute("overflow", "visible");
-    el.removeAttribute("role");
-    return el;
+    if (!isSupported(type)) return placeholderArtwork(type);
+    try {
+      const el = parseSvg(componentSvg(kitComponent(type), this.view, stateName));
+      el.setAttribute("overflow", "visible");
+      el.removeAttribute("role");
+      return el;
+    } catch {
+      return placeholderArtwork(type);
+    }
   }
 
   /* -------------------------------------------------------------- pointer */
 
-  private clientToWorld(evt: PointerEvent | MouseEvent): Vec2 {
-    const pt = this.svgEl.createSVGPoint();
-    pt.x = evt.clientX;
-    pt.y = evt.clientY;
-    const ctm = this.svgEl.getScreenCTM();
-    if (!ctm) return { x: 0, y: 0 };
-    const w = pt.matrixTransform(ctm.inverse());
-    return { x: w.x, y: w.y };
+  private clientToWorld(evt: { clientX: number; clientY: number }): Vec2 {
+    const s = this.screenPoint(evt);
+    return { x: (s.x - this.cam.x) / this.cam.zoom, y: (s.y - this.cam.y) / this.cam.zoom };
+  }
+
+  private capture(id: number): void {
+    try {
+      this.svgEl.setPointerCapture(id);
+    } catch {
+      /* synthetic or already-released pointer */
+    }
   }
 
   private bindPointer(): void {
@@ -300,6 +373,14 @@ export class Renderer {
     this.svgEl.addEventListener("pointerdown", (e) => this.onDown(e));
     this.svgEl.addEventListener("pointerup", () => this.onUp());
     this.svgEl.addEventListener("pointercancel", () => this.endActuation());
+    this.svgEl.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        this.zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e);
+      },
+      { passive: false },
+    );
     window.addEventListener("blur", () => this.endActuation());
   }
 
@@ -332,6 +413,13 @@ export class Renderer {
       const da = worldPortDir(inst, this.connectFrom.port);
       this.connectRubber.setAttribute("d", rubberPath(a, da, w));
     }
+
+    if (this.panFrom) {
+      const s = this.screenPoint(e);
+      this.cam.x = this.panFrom.camX + (s.x - this.panFrom.px);
+      this.cam.y = this.panFrom.camY + (s.y - this.panFrom.py);
+      this.applyCamera();
+    }
   }
 
   private onDown(e: PointerEvent): void {
@@ -356,7 +444,7 @@ export class Renderer {
       const id = actuate.dataset.actuate!;
       this.store.select(id);
       this.engine.setInput(id, true);
-      this.svgEl.setPointerCapture(e.pointerId);
+      this.capture(e.pointerId);
       this.activeActuator = id;
       return;
     }
@@ -380,7 +468,8 @@ export class Renderer {
       const inst = this.store.getComponent(id)!;
       const w = this.clientToWorld(e);
       this.drag = { id, grabDX: w.x - inst.position.x, grabDY: w.y - inst.position.y };
-      this.svgEl.setPointerCapture(e.pointerId);
+      this.store.beginBatch();
+      this.capture(e.pointerId);
       return;
     }
 
@@ -390,12 +479,20 @@ export class Renderer {
       return;
     }
 
+    // empty space — deselect and start panning the camera
     this.cancelConnect();
     this.store.select(null);
+    const s = this.screenPoint(e);
+    this.panFrom = { px: s.x, py: s.y, camX: this.cam.x, camY: this.cam.y };
+    this.capture(e.pointerId);
+    this.svgEl.classList.add("panning");
   }
 
   private onUp(): void {
+    if (this.drag) this.store.endBatch();
     this.drag = null;
+    this.panFrom = null;
+    this.svgEl.classList.remove("panning");
     this.endActuation();
   }
 
@@ -431,7 +528,7 @@ export class Renderer {
       class: "wire-rubber",
     });
     this.overlay.append(this.connectRubber);
-    this.svgEl.setPointerCapture(e.pointerId);
+    this.capture(e.pointerId);
 
     const finish = (ev: PointerEvent): void => {
       this.svgEl.removeEventListener("pointerup", finish);
@@ -507,4 +604,17 @@ function simplify(points: Vec2[]): Vec2[] {
 
 function toPath(points: Vec2[]): string {
   return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+}
+
+/** Neutral stand-in for an unsupported component type (UI_DESIGN_BIBLE §11). */
+function placeholderArtwork(type: string): SVGSVGElement {
+  const def = getDef(type);
+  const [, , w, h] = def.viewBox;
+  const el = svg("svg", { viewBox: `0 0 ${w} ${h}`, width: w, height: h, class: "unknown-art" });
+  el.append(
+    svg("rect", { x: 6, y: 6, width: w - 12, height: h - 12, rx: 4, class: "unknown-box" }),
+    svg("text", { x: w / 2, y: h / 2 - 6, "text-anchor": "middle", class: "unknown-q" }, ["?"]),
+    svg("text", { x: w / 2, y: h - 16, "text-anchor": "middle", class: "unknown-label" }, [type]),
+  );
+  return el as unknown as SVGSVGElement;
 }
