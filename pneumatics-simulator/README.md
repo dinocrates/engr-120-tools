@@ -24,6 +24,7 @@ shifts, pressure propagates, the cylinder extends. Release and it retracts.
 | Centre-pivot rotation shared by artwork and port anchors (0/90/180/270) | ✅ |
 | Searchable categorised library with hardware/symbol thumbnails | ✅ |
 | Inspector — identity, editable params, read-only live values, symbol/hardware compare, "How it works" | ✅ |
+| **Explain mode** — select a component/line during sim for a live plain-language causal chain (SDD §26) | ✅ |
 | Transport — Run / Pause / Step / Reset, speed, live position meter (SDD §22, §36) | ✅ |
 | Run-mode operator control panel — latch valve actuators, supply on/off (UI_DESIGN_BIBLE §2.3, §6) | ✅ |
 | Network-state solver — pressurised / exhausting / trapped regions (SDD §9–11) | ✅ |
@@ -65,6 +66,7 @@ src/
   sim/         simulation engine — the §11 phase cycle, valve logic, cylinder motion
   render/      SVG renderer — inlines kit artwork, view toggle, pointer interaction
   ui/          brand header, library, inspector, run control panel, transport, status, demo
+  sim/explain.ts   turns solved state into a plain-language causal chain (§26)
   events/      typed event bus (§32)
 ```
 

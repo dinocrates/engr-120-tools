@@ -5,6 +5,7 @@ import { componentSvg } from "@/kit/render-state.ts";
 import { nodeKey } from "@/model/geometry.ts";
 import type { Store } from "@/model/store.ts";
 import type { Engine } from "@/sim/engine.ts";
+import { explain } from "@/sim/explain.ts";
 import type { Renderer } from "@/render/renderer.ts";
 
 interface Args {
@@ -20,6 +21,17 @@ interface Args {
 export function mountProperties({ host, store, engine, bus, renderer }: Args): void {
   let liveSelected = false;
 
+  /** Explain mode (SDD §26): why the selection is in its current state. */
+  const explainHtml = (id: string): string => {
+    if (store.mode !== "run") return "";
+    const ex = explain(store.circuit, engine.runtime, id);
+    if (!ex) return "";
+    return (
+      `<div class="explain"><p class="explain-head">${escapeHtml(ex.headline)}</p>` +
+      `<ol class="explain-steps">${ex.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol></div>`
+    );
+  };
+
   const render = (): void => {
     const id = store.selection;
     const comp = id ? store.getComponent(id) : undefined;
@@ -30,6 +42,7 @@ export function mountProperties({ host, store, engine, bus, renderer }: Args): v
         const state = engine.runtime.connStates.get(wire.id);
         host.innerHTML = `
           <p class="eyebrow">Connection</p>
+          ${explainHtml(wire.id)}
           <dl class="props">
             <dt>From</dt><dd class="ro">${wire.from.component} · ${wire.from.port}</dd>
             <dt>To</dt><dd class="ro">${wire.to.component} · ${wire.to.port}</dd>
@@ -133,6 +146,7 @@ export function mountProperties({ host, store, engine, bus, renderer }: Args): v
       <p class="eyebrow">Selected component</p>
       <div class="title-row"><h2>${escapeHtml(comp.label ?? def.name)}</h2><span class="tag">${comp.id}</span></div>
       <p class="sub">${def.category}</p>
+      ${explainHtml(comp.id)}
       <div class="compare">${compareHtml}</div>
       <dl class="props">${rows.join("")}</dl>
       <details class="howto">
@@ -164,17 +178,18 @@ export function mountProperties({ host, store, engine, bus, renderer }: Args): v
   bus.on("selection:changed", () => {
     const id = store.selection;
     const comp = id ? store.getComponent(id) : undefined;
-    liveSelected = Boolean(
-      comp &&
-        (getDef(comp.type).cylinder ||
-          getDef(comp.type).valve ||
-          getDef(comp.type).trigger ||
-          getDef(comp.type).checkValve),
-    );
+    // during simulation any selection has a live explanation to refresh
+    liveSelected =
+      store.mode === "run"
+        ? Boolean(id)
+        : Boolean(comp && (getDef(comp.type).cylinder || getDef(comp.type).valve));
     render();
   });
   bus.on("circuit:changed", render);
-  bus.on("mode:changed", render);
+  bus.on("mode:changed", () => {
+    liveSelected = store.mode === "run" && Boolean(store.selection);
+    render();
+  });
   bus.on("view:changed", render);
   bus.on("sim:tick", () => liveSelected && render());
   bus.on("valve:changed", () => liveSelected && render());

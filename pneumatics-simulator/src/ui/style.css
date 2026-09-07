@@ -314,6 +314,18 @@ header#brand img.header-lockup { cursor: default; }
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* explain mode (SDD §26) */
+.explain {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--navy-900);
+  color: #e2eefb;
+  border-left: 4px solid var(--cyan-300);
+}
+.explain-head { margin: 0 0 6px; font-weight: 700; font-size: 12.5px; }
+.explain-steps { margin: 0; padding-left: 18px; }
+.explain-steps li { font-size: 12px; line-height: 1.5; margin: 2px 0; }
 details.howto { margin-top: 12px; font-size: 12px; }
 details.howto summary { cursor: pointer; font-weight: 600; }
 .muted { color: var(--muted); }

@@ -111,6 +111,19 @@ if (cycleEnd > 12) await fail(`auto-cycle did not auto-retract at the limit valv
 
 console.log(`auto-cycle: tap PB1 -> ${cyclePeak}% -> limit -> ${cycleEnd}%  ✓`);
 
+// -- explain mode -------------------------------------------------------
+await page.evaluate(() => {
+  const g = document.querySelector(".component.type-valve-5-2-pp");
+  const r = g.getBoundingClientRect();
+  g.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }));
+});
+await page.waitForTimeout(200);
+const explainText = (await page.textContent(".explain")) ?? "";
+if (!/V1 is in the (rest|actuated) position/.test(explainText)) {
+  await fail(`explain mode gave no valve explanation: "${explainText.slice(0, 80)}"`);
+}
+console.log(`explain: "${explainText.replace(/\s+/g, " ").trim().slice(0, 70)}…"  ✓`);
+
 // -- robustness: undo + unknown-type fallback --------------------------
 await page.click("#reset");
 await page.selectOption('[data-act="demo"]', "basic");
