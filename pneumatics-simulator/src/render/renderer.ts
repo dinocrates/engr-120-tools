@@ -11,7 +11,7 @@
 
 import { getDef } from "@/components/defs.ts";
 import type { EventBus } from "@/events/bus.ts";
-import { instanceTransformAttr, nodeKey, worldPort, worldSize } from "@/model/geometry.ts";
+import { instanceTransformAttr, nodeKey, worldPort, worldPortDir, worldSize } from "@/model/geometry.ts";
 import type { ComponentInstance, ConnectionEnd, Vec2 } from "@/model/types.ts";
 import type { Store } from "@/model/store.ts";
 import type { Engine } from "@/sim/engine.ts";
@@ -128,7 +128,7 @@ export class Renderer {
     this.renderKey.clear();
 
     for (const inst of this.store.circuit.components) this.buildComponent(inst);
-    for (const conn of this.store.circuit.connections) this.buildWire(conn.id);
+    this.store.circuit.connections.forEach((conn, i) => this.buildWire(conn.id, i));
 
     this.applySelection();
     this.syncDynamic();
@@ -188,7 +188,7 @@ export class Renderer {
     this.labels.append(label);
   }
 
-  private buildWire(id: string): void {
+  private buildWire(id: string, index = 0): void {
     const conn = this.store.circuit.connections.find((c) => c.id === id);
     if (!conn) return;
     const from = this.store.getComponent(conn.from.component);
@@ -196,7 +196,13 @@ export class Renderer {
     if (!from || !to) return;
     const a = worldPort(from, conn.from.port);
     const b = worldPort(to, conn.to.port);
-    const d = wirePath(a, b);
+    const d = routeWire(
+      a,
+      worldPortDir(from, conn.from.port),
+      b,
+      worldPortDir(to, conn.to.port),
+      ((index % 5) - 2) * 16,
+    );
     const wire = group("wire");
     wire.dataset.id = id;
     wire.append(
@@ -317,8 +323,10 @@ export class Renderer {
     }
 
     if (this.connectFrom && this.connectRubber) {
-      const a = worldPort(this.store.getComponent(this.connectFrom.component)!, this.connectFrom.port);
-      this.connectRubber.setAttribute("d", wirePath(a, w));
+      const inst = this.store.getComponent(this.connectFrom.component)!;
+      const a = worldPort(inst, this.connectFrom.port);
+      const da = worldPortDir(inst, this.connectFrom.port);
+      this.connectRubber.setAttribute("d", rubberPath(a, da, w));
     }
   }
 
@@ -412,8 +420,12 @@ export class Renderer {
 
   private beginConnect(end: ConnectionEnd, e: PointerEvent): void {
     this.connectFrom = end;
-    const wp = worldPort(this.store.getComponent(end.component)!, end.port);
-    this.connectRubber = svg("path", { d: wirePath(wp, wp), class: "wire-rubber" });
+    const inst = this.store.getComponent(end.component)!;
+    const wp = worldPort(inst, end.port);
+    this.connectRubber = svg("path", {
+      d: rubberPath(wp, worldPortDir(inst, end.port), wp),
+      class: "wire-rubber",
+    });
     this.overlay.append(this.connectRubber);
     this.svgEl.setPointerCapture(e.pointerId);
 
@@ -437,14 +449,58 @@ export class Renderer {
 
 /* ------------------------------------------------------------------ utils */
 
-/** Orthogonal 3-segment route between two world points (UI_DESIGN_BIBLE §10). */
-function wirePath(a: Vec2, b: Vec2): string {
-  const dx = Math.abs(a.x - b.x);
-  const dy = Math.abs(a.y - b.y);
-  if (dy >= dx) {
-    const my = (a.y + b.y) / 2;
-    return `M ${a.x} ${a.y} L ${a.x} ${my} L ${b.x} ${my} L ${b.x} ${b.y}`;
+const LEAD = 20; // tube stub length before routing (UI_DESIGN_BIBLE §10)
+
+/**
+ * Orthogonal route between two ports. Each end gets a short perpendicular
+ * lead-out so it's always clear which port a tube belongs to; the mid corridor
+ * is nudged by `channel` so parallel runs don't stack on top of each other.
+ */
+function routeWire(a: Vec2, da: Vec2, b: Vec2, db: Vec2, channel: number): string {
+  const a1 = { x: a.x + da.x * LEAD, y: a.y + da.y * LEAD };
+  const b1 = { x: b.x + db.x * LEAD, y: b.y + db.y * LEAD };
+  const aHoriz = da.x !== 0;
+  const bHoriz = db.x !== 0;
+
+  const mids: Vec2[] = [];
+  if (aHoriz && bHoriz) {
+    const midX = (a1.x + b1.x) / 2 + channel;
+    mids.push({ x: midX, y: a1.y }, { x: midX, y: b1.y });
+  } else if (!aHoriz && !bHoriz) {
+    const midY = (a1.y + b1.y) / 2 + channel;
+    mids.push({ x: a1.x, y: midY }, { x: b1.x, y: midY });
+  } else if (aHoriz) {
+    mids.push({ x: b1.x, y: a1.y });
+  } else {
+    mids.push({ x: a1.x, y: b1.y });
   }
-  const mx = (a.x + b.x) / 2;
-  return `M ${a.x} ${a.y} L ${mx} ${a.y} L ${mx} ${b.y} L ${b.x} ${b.y}`;
+
+  return toPath(simplify([a, a1, ...mids, b1, b]));
+}
+
+/** Rubber-band route while dragging a new connection. */
+function rubberPath(a: Vec2, da: Vec2, cursor: Vec2): string {
+  const a1 = { x: a.x + da.x * LEAD, y: a.y + da.y * LEAD };
+  const corner = da.x !== 0 ? { x: cursor.x, y: a1.y } : { x: a1.x, y: cursor.y };
+  return toPath(simplify([a, a1, corner, cursor]));
+}
+
+/** Drop repeated points and collinear midpoints. */
+function simplify(points: Vec2[]): Vec2[] {
+  const out: Vec2[] = [];
+  for (const p of points) {
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.x - p.x) < 0.5 && Math.abs(last.y - p.y) < 0.5) continue;
+    out.push(p);
+  }
+  for (let i = out.length - 2; i > 0; i--) {
+    const [prev, cur, next] = [out[i - 1]!, out[i]!, out[i + 1]!];
+    const cross = (cur.x - prev.x) * (next.y - prev.y) - (cur.y - prev.y) * (next.x - prev.x);
+    if (Math.abs(cross) < 0.5) out.splice(i, 1);
+  }
+  return out;
+}
+
+function toPath(points: Vec2[]): string {
+  return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
 }

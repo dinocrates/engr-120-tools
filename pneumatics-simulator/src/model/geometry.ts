@@ -30,6 +30,30 @@ export function worldPort(inst: ComponentInstance, portId: string): Vec2 {
   return kitWorldPort(kitComponent(inst.type), portId, instanceTransform(inst));
 }
 
+/**
+ * Outward-facing unit direction of a port (which way a tube should leave it),
+ * as a cardinal vector in world space. Inferred from the nearest viewBox edge
+ * in local space, then rotated with the instance.
+ */
+export function worldPortDir(inst: ComponentInstance, portId: string): Vec2 {
+  const def = kitComponent(inst.type);
+  const port = def.ports.find((p) => p.id === portId);
+  if (!port) return { x: 0, y: 1 };
+  const [, , w, h] = def.viewBox;
+  const d = { left: port.x, right: w - port.x, top: port.y, bottom: h - port.y };
+  const min = Math.min(d.left, d.right, d.top, d.bottom);
+  let local: Vec2;
+  if (min === d.top) local = { x: 0, y: -1 };
+  else if (min === d.bottom) local = { x: 0, y: 1 };
+  else if (min === d.left) local = { x: -1, y: 0 };
+  else local = { x: 1, y: 0 };
+
+  const rad = (inst.rotation * Math.PI) / 180;
+  const cos = Math.round(Math.cos(rad));
+  const sin = Math.round(Math.sin(rad));
+  return { x: local.x * cos - local.y * sin, y: local.x * sin + local.y * cos };
+}
+
 /** SVG `transform` attribute placing an instance's local space into the world. */
 export function instanceTransformAttr(inst: ComponentInstance): string {
   return kitTransformAttr(kitComponent(inst.type), instanceTransform(inst));
