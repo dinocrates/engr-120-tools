@@ -37,6 +37,7 @@ jobs:
           mkdir -p _site
           cp index.html _site/
           cp -r beam-analysis _site/
+          cp -r slice-lab _site/
           mkdir -p _site/pneumatics-simulator
           cp -r pneumatics-simulator/dist/* _site/pneumatics-simulator/
 

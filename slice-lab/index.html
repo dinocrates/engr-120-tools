@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a132a">
+  <meta name="description" content="Explore how a 3D printer turns a model into layers, toolpaths, infill, and supports. An interactive engineering explainer.">
+  <title>Slice Lab — 3D Printing Explorer</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/"}}</script>
+</head>
+<body>
+<a class="skip" href="#workspace">Skip to the explorer</a>
+<header class="masthead">
+  <div class="brand"><svg width="35" height="36" viewBox="0 0 35 36" aria-hidden="true"><path d="M3 9 17 2 32 9 17 16Z" fill="#73e2ff"/><path d="m3 16 14 7 15-7M3 23l14 7 15-7" fill="none" stroke="#449de1" stroke-width="4"/></svg><h1>SLICE<span>LAB</span></h1><span class="edition">3D PRINTING EXPLORER</span></div>
+  <div class="course">ENGR–120 <span>/</span> THE MAKERSPACE</div>
+</header>
+<main>
+  <div class="intro"><div><span class="eyebrow">FROM MODEL TO MOTION</span><h2>A print, one path at a time.</h2></div><p>Take a look inside the process.<br>Change a setting. See what the printer does.</p></div>
+  <nav class="chapters" aria-label="Exploration chapters">
+    <button data-stage="model"><span>01</span> The model</button>
+    <button data-stage="layers"><span>02</span> Slice it</button>
+    <button data-stage="paths" class="active" aria-current="step"><span>03</span> Build the paths</button>
+    <button data-stage="supports"><span>04</span> Support it</button>
+    <button data-stage="motion"><span>05</span> Follow the nozzle</button>
+  </nav>
+  <div class="workspace" id="workspace">
+    <aside class="settings panel" aria-label="Print settings">
+      <div class="panel-title"><span class="eyebrow">PRINT SETUP</span><span class="small-chip">FDM</span></div>
+      <label class="field-label" for="model">Choose a model</label>
+      <select id="model"><option value="block">Calibration block</option><option value="steps">Stepped tower</option><option value="overhang">T-shaped overhang</option></select>
+      <p id="model-note" class="helper">A simple shape with a lot happening inside.</p>
+      <div class="divider"></div>
+      <label class="field-label" for="height">Layer height <output id="height-value">0.30 mm</output></label>
+      <select id="height"><option value="0.1">0.10 mm · Fine</option><option value="0.2">0.20 mm · Standard</option><option value="0.3" selected>0.30 mm · Coarse</option></select>
+      <div class="field-head"><label for="density">Infill density</label><output id="density-value">20%</output></div>
+      <input id="density" type="range" min="0" max="100" step="5" value="20">
+      <div class="range-labels"><span>Hollow</span><span>Solid</span></div>
+      <label class="field-label" for="pattern">Infill pattern</label>
+      <select id="pattern" aria-describedby="pattern-note"><option value="lines">Alternating lines</option><option value="grid">Grid</option><option value="honeycomb">Hexagonal honeycomb</option><option value="gyroid">Gyroid · 3D curves</option></select>
+      <p id="pattern-note" class="helper">Parallel lines turn 90° on the next layer. Isolate a layer to compare patterns.</p>
+      <div class="field-head"><label for="walls">Wall count</label><output id="walls-value">2 walls</output></div>
+      <input id="walls" type="range" min="1" max="4" step="1" value="2">
+      <div class="divider"></div>
+      <label class="toggle"><span><strong>Generate supports</strong><small id="support-help">Only needed for the overhang model</small></span><input id="supports" type="checkbox" checked><span class="switch" aria-hidden="true"></span></label>
+      <p class="helper" id="settings-status" role="status">Settings update the paths automatically.</p>
+      <button id="reset" class="text-button">↺ Reset explorer</button>
+    </aside>
+    <section class="viewer panel" aria-label="Interactive 3D print preview">
+      <div class="view-header"><div><span class="live-square"></span><strong id="view-title">TOOLPATH VIEW</strong></div><div class="view-actions"><button id="iso" class="selected" aria-label="Isometric camera view">3D</button><button id="top" aria-label="Top camera view">Top</button><button id="front" aria-label="Front camera view">Front</button><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button></div></div>
+      <div id="scene" tabindex="0" role="img" aria-label="3D model on a gridded print bed. Drag to orbit, scroll to zoom, or use the labeled camera buttons. Arrow keys rotate the view."><div id="scene-error" hidden>3D rendering is unavailable in this browser. Enable hardware acceleration or try a WebGL 2 capable browser. The setup, layer information, and path readouts remain available.</div>
+        <div class="scene-meta"><span id="scene-model">CALIBRATION BLOCK</span><span id="dimensions">36 × 24 × 18 mm</span></div>
+        <div class="layer-badge"><span>LAYER</span><strong id="layer-badge">30<span>/ 60</span></strong><small id="z-badge">Z = 9.00 mm</small></div>
+        <div id="overhang-warning" class="scene-warning" hidden>Unsupported cantilever: new paths extend beyond the material below.</div>
+        <div class="orbit-hint">DRAG TO ORBIT <span>·</span> SCROLL TO ZOOM</div>
+      </div>
+      <div class="view-options"><label><input id="isolate" type="checkbox"> Current layer only</label><label><input id="ghost" type="checkbox" checked> Model outline</label><label><input id="travel" type="checkbox"> Travel moves</label></div>
+      <div class="legend" aria-label="Path color key"><span><i class="wall"></i>Walls</span><span><i class="infill"></i>Infill</span><span><i class="skin"></i>Solid surfaces</span><span><i class="support"></i>Supports</span><span><i class="travel"></i>Travel</span></div>
+      <div class="transport">
+        <div class="transport-row"><div class="play-buttons"><button id="play" class="primary">▶ Play paths</button><button id="restart" class="icon-button" aria-label="Restart current layer" title="Restart current layer">↺</button><button id="next-path" class="icon-button" aria-label="Advance one path" title="Advance one path">↦</button></div><label class="speed-label">Speed <select id="speed" aria-label="Playback speed"><option value="1">1×</option><option value="5" selected>5×</option><option value="20">20×</option></select></label></div>
+        <div class="scrubber-head"><label for="layer">Layer <output id="layer-value">30 of 60</output></label><div class="layer-steps"><button id="prev-layer" aria-label="Previous layer">−</button><button id="next-layer" aria-label="Next layer">+</button></div></div>
+        <input id="layer" type="range" min="1" max="60" value="30">
+        <div class="path-progress"><label for="progress">Within this layer</label><input id="progress" type="range" min="0" max="1000" value="1000"><output id="progress-value">100%</output></div>
+      </div>
+    </section>
+    <aside class="explanation panel" aria-label="How slicing works">
+      <div class="panel-title"><span class="eyebrow">LOOK CLOSER</span><span id="chapter-count" class="muted">03 / 05</span></div>
+      <h3 id="lesson-title">A layer is a set of paths.</h3>
+      <p id="lesson-copy">First, the slicer traces walls around the boundary. Then it fills the interior. The nozzle follows these lines, depositing a narrow bead of plastic.</p>
+      <div class="notice"><span class="eyebrow">TRY THIS</span><p id="try-copy">Select “Current layer only,” switch to Top, and press Play. Which paths form the outside of the part?</p><button id="try-action">Isolate this layer ↗</button></div>
+      <div class="divider"></div>
+      <span class="eyebrow">NOZZLE POSITION · mm</span>
+      <div class="coordinates"><div><span class="x-axis">X</span><output id="pos-x">0.00</output></div><div><span class="y-axis">Y</span><output id="pos-y">0.00</output></div><div><span class="z-axis">Z</span><output id="pos-z">0.00</output></div></div>
+      <div class="now"><span id="path-dot"></span><strong id="path-type">Wall</strong><span id="path-number"></span></div>
+      <div class="code-card"><div><span>MOVE DESTINATION</span><span id="extrusion-state">EXTRUDING</span></div><code id="gcode">G1 X32.23 Y38.23 E0.000</code></div>
+      <p class="helper">X and Y locate the nozzle across the bed. Z measures its height. E is the accumulated filament feed. Layer changes are slowed so you can see the Z motion.</p>
+      <div class="divider"></div>
+      <div class="stats"><div><span>Total layers</span><strong id="total-layers">60</strong></div><div><span>Deposited path</span><strong id="path-length">0 m</strong></div><div><span>Support path</span><strong id="support-length">0 m</strong></div></div>
+      <p class="helper">Lengths describe this teaching model, not a print-time or strength prediction.</p>
+    </aside>
+  </div>
+  <section class="understand" aria-label="Key printing concepts">
+    <div class="art-card"><img src="./assets/printer.png" alt="Pixel art FDM printer building a cyan stepped part" width="210" height="210"><div><span class="eyebrow">SMALL LAYERS.<br>BIG POSSIBILITIES.</span><p>One continuous object.<br>Thousands of deliberate moves.</p></div></div>
+    <article><span class="concept-number">01 / STRUCTURE</span><h3>Infill stays inside.</h3><p>Infill supports top surfaces and changes material use and stiffness. Strength also depends on walls, print orientation, material, and bonding.</p><a href="https://help.prusa3d.com/article/infill_42" target="_blank" rel="noopener noreferrer">Read about infill ↗</a></article>
+    <article><span class="concept-number">02 / TEMPORARY HELP</span><h3>Supports come off.</h3><p>Supports reach up to overhangs outside the part. A small contact gap helps separation. A bridge anchored at both ends may print without support.</p><a href="https://help.prusa3d.com/article/support-material_1698" target="_blank" rel="noopener noreferrer">Read about supports ↗</a></article>
+  </section>
+  <footer><span>SLICE LAB <span class="muted">/ ENGR–120</span></span><p>Conceptual FDM explainer · 0.45 mm line width · 3 top / bottom layers · relative nozzle motion shown<br>Procedural sample models; real slicers also plan retractions, cooling, acceleration, and collision avoidance.</p></footer>
+</main>
+<script type="module" src="./app.mjs"></script>
+</body></html>
